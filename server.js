@@ -8,6 +8,8 @@ var io = socket(server);
 
 app.use(express.static('public'));
 
+console.log("Listening on port 3000. Please port forward if you wish to connect over the internet.")
+
 io.sockets.on('connection', function(socket) {
     console.log('New connection: ' + socket.id);
 
