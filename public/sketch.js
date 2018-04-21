@@ -1,8 +1,10 @@
-var socket = io.connect();
+var socket = io.connect("localhost:3000");
 
 //keep track of our colour
 var r = 150, g = 150, b = 150;
-//palette positions
+//predefine colours
+var BLACK, WHITE, RED, GREEN, BLUE;
+//palette objects (vector2 position with colour)
 var P1, P2, P3, P4;
 
 function setup() {
@@ -19,21 +21,30 @@ function setup() {
     button = createButton('Connect to port');
     button.position(input.x + input.width, input.y);
     button.mousePressed(function() {
+        socket.io.disconnect();
         socket = io.connect(input.value());
+        //socket.emit('requestCanvas');
     });
 
     //Setup drawing
     strokeWeight(4);
 
+    //Setup colours
+    BLACK = color(0, 0, 0);
+    WHITE = color(255, 255, 255);
+    RED = color(255, 40, 40);
+    GREEN = color(40, 255, 40);
+    BLUE = color(40, 40, 255);
+
     //Setup palettes
     P1 = createVector(90,height - 20);
-    P1.colour = color(255, 40, 40);
+    P1.colour = RED;
     P2 = createVector(125,height - 20);
-    P2.colour = color(40, 255, 40);
+    P2.colour = GREEN;
     P3 = createVector(160,height - 20);
-    P3.colour = color(40, 40, 255);
+    P3.colour = BLUE;
     P4 = createVector(195,height - 20);
-    P4.colour = color(255, 255, 255);
+    P4.colour = WHITE;
 }
 
 function draw() {
@@ -42,17 +53,13 @@ function draw() {
 
   if (mouseIsPressed) {
       DrawDot();
-      SendMouseInfo();
-      FadeColour(random(0, 2));
-  }
-  else {
-      FadeColour(random(-2, 0));
+      if (socket) SendMouseInfo();
   }
 }
 
 //Canvas
 function DrawDot(x = mouseX, y = mouseY, dotColour = color(r,g,b)) {
-    stroke(dotColour);
+    noStroke();
     fill(dotColour);
     ellipse(x, y , 25, 25);
 }
@@ -60,7 +67,7 @@ function DrawDot(x = mouseX, y = mouseY, dotColour = color(r,g,b)) {
 function DrawPalette() {
     //Draw current colour
     DrawDot(20,height - 20);
-    //palette divider
+    //Palette divider
     stroke(color(255, 255, 255));
     line(55, height - 5, 55, height - 35);
     //Draw palette
@@ -70,27 +77,32 @@ function DrawPalette() {
     DrawDot(P4.x, P4.y, P4.colour);
 }
 
-function FadeColour(amount) {
-    r += amount;
-    g += amount;
-    b += amount;
+//Approach colour by amount each frame
+function ApproachColour(colour, amount = random(0, 2)) {
+    var newR = colour._array[0] * 255;
+    var newG = colour._array[1] * 255;
+    var newB = colour._array[2] * 255;
+
+    r < newR ? r+= amount : r-= amount;
+    g < newG ? g+= amount : g-= amount;
+    b < newB ? b+= amount : b-= amount;
 
     r = constrain(r, 0, 255);
     g = constrain(g, 0, 255);
     b = constrain(b, 0, 255);
 }
 
-function GetNewColour(colour) {
-    r = colour._array[0] * 255;
-    g = colour._array[1] * 255;
-    b = colour._array[2] * 255;
-}
-
 function CheckPalettes() {
-    if (dist(P1.x, P1.y, mouseX, mouseY) < 20) { GetNewColour(P1.colour); }
-    if (dist(P2.x, P2.y, mouseX, mouseY) < 20) { GetNewColour(P2.colour); }
-    if (dist(P3.x, P3.y, mouseX, mouseY) < 20) { GetNewColour(P3.colour); }
-    if (dist(P4.x, P4.y, mouseX, mouseY) < 20) { GetNewColour(P4.colour); }
+    //If mouse is ove a palette, select that colour otherwise fade the colour closer to white or black
+    if (dist(P1.x, P1.y, mouseX, mouseY) < 20) { ApproachColour(P1.colour); }
+    else if (dist(P2.x, P2.y, mouseX, mouseY) < 20) { ApproachColour(P2.colour); }
+    else if (dist(P3.x, P3.y, mouseX, mouseY) < 20) { ApproachColour(P3.colour); }
+    else if (dist(P4.x, P4.y, mouseX, mouseY) < 20) { ApproachColour(P4.colour); }
+    else {
+        if (mouseIsPressed) ApproachColour(WHITE);
+        else ApproachColour(BLACK);
+    }
+
 }
 
 //Disable mobile default controls
@@ -115,7 +127,29 @@ function SendMouseInfo() {
     socket.emit('mouse', data);
 }
 
+//When a new client joins, host will send his canvas pixel information
+function SendCanvas(from) {
+    //Default get() returns all pixels on the canvas as a pixel[]
+    //Client requesting canvas is stored in requestCanvas data
+    var data = {
+        canvas: get(),
+        to: from
+    }
+
+    socket.emit('sendCanvas', data);
+}
+
 //Receive
 socket.on('mouse', function(data) {
     DrawDot(data.x, data.y, color(data.r, data.g, data.b));
-})
+});
+
+socket.on('requestCanvas', function(data) {
+    SendCanvas(data.from);
+    console.log("received a thing");
+});
+
+socket.on('sendCanvas', function(data) {
+    background(data.canvas);
+    console.log(data.canvas);
+});
