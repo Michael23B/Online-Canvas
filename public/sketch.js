@@ -1,5 +1,5 @@
 var socket = io.connect("localhost:3000");
-
+SocketSetup();
 //keep track of our colour
 var r = 150, g = 150, b = 150;
 //predefine colours
@@ -21,8 +21,11 @@ function setup() {
     button = createButton('Connect to port');
     button.position(input.x + input.width, input.y);
     button.mousePressed(function() {
-        socket.io.disconnect();
-        socket = io.connect(input.value());
+        socket.disconnect(true);
+        socket = io.connect(input.value().toString());
+
+        SocketSetup();
+
         //socket.emit('requestCanvas');
     });
 
@@ -55,6 +58,24 @@ function draw() {
       DrawDot();
       if (socket) SendMouseInfo();
   }
+}
+var img;
+function keyPressed(e) {
+    if (e.key === "w") {
+        socket.emit('requestCanvas', { from: socket.id });
+        console.log("request sent");
+    }
+    if (e.key === "e") {
+        background(img);
+    }
+    if (e.key === "d") {
+        var s = get();
+        translate(30,30);
+        background(s);
+    }
+    if (e.key === "s") {
+        img = get();
+    }
 }
 
 //Canvas
@@ -102,7 +123,6 @@ function CheckPalettes() {
         if (mouseIsPressed) ApproachColour(WHITE);
         else ApproachColour(BLACK);
     }
-
 }
 
 //Disable mobile default controls
@@ -122,7 +142,7 @@ function SendMouseInfo() {
         r: r,
         g: g,
         b: b
-    }
+    };
 
     socket.emit('mouse', data);
 }
@@ -131,25 +151,31 @@ function SendMouseInfo() {
 function SendCanvas(from) {
     //Default get() returns all pixels on the canvas as a pixel[]
     //Client requesting canvas is stored in requestCanvas data
+    var canvasInfo = get();
     var data = {
-        canvas: get(),
+        canvas: canvasInfo,
         to: from
     }
-
+    console.log("SENDING THE CANVAS -------------------------");
     socket.emit('sendCanvas', data);
 }
 
-//Receive
-socket.on('mouse', function(data) {
-    DrawDot(data.x, data.y, color(data.r, data.g, data.b));
-});
+function SocketSetup() {
+    //Receive
+    socket.on('mouse', function(data) {
+        DrawDot(data.x, data.y, color(data.r, data.g, data.b));
+    });
 
-socket.on('requestCanvas', function(data) {
-    SendCanvas(data.from);
-    console.log("received a thing");
-});
+    socket.on('requestCanvas', function(data) {
+        console.log("received a request from " + data.from);
+        SendCanvas(data.from);
+    });
 
-socket.on('sendCanvas', function(data) {
-    background(data.canvas);
-    console.log(data.canvas);
-});
+    socket.on('sendCanvas', function(data) {
+        console.log("ok we got sent a canvas here. Canvas type = " + typeof(data.canvas));
+        console.log(data.canvas);
+        //image(data.canvas, 0,0);
+        background(data.canvas);
+        console.log("finished applying new canvas.");
+    });
+}
