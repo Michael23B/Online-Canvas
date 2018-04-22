@@ -4,20 +4,32 @@ var socket = io;
 //SocketSetup();
 
 //keep track of our colour
-var r = 150, g = 150, b = 150;
-//predefine colours
-var BLACK, WHITE, RED, GREEN, BLUE;
+var r = 150, g = 150, b = 150, drawSize;
+//predefine constants
+var BLACK, WHITE, RED, GREEN, BLUE, DEFAULTSIZE;
 //palette objects (vector2 position with colour)
 var P1, P2, P3, P4;
+//controller objects
+var sizeControlUp, sizeControlDown;
+//image array
+var images = [];
 
 var loading = true;
+
+function preload() {
+    images.push(loadImage('/img/krappa.png'));
+    images.push(loadImage('/img/omegalul.png'));
+    images.push(loadImage('/img/seemsgood.png'));
+}
 
 function setup() {
   createCanvas(800, 600);
   background(20);
   //Setup ip input
-    input = createInput();
+    input = createInput(getURL());
     input.position(5, 30);
+    input.value();
+    input.size(175);
 
     textSize(18);
     fill(230, 230, 230);
@@ -33,19 +45,28 @@ function setup() {
         button.hide();
 
         SocketSetup();
-
-        //RequestCanvas();
     });
+
+    //Setup clear button
+    clearbtn = createButton('!!!');
+    clearbtn.position(width - 75, 60);
+    clearbtn.size(60);
+    clearbtn.mousePressed(function() {
+        ClearCanvas();
+    });
+
 
     //Setup drawing
     strokeWeight(4);
+    imageMode(CENTER);
 
-    //Setup colours
+    //Setup constants
     BLACK = color(0, 0, 0);
     WHITE = color(255, 255, 255);
     RED = color(255, 40, 40);
     GREEN = color(40, 255, 40);
     BLUE = color(40, 40, 255);
+    DEFAULTSIZE = createVector(25,25);
 
     //Setup palettes
     P1 = createVector(90,height - 20);
@@ -56,58 +77,84 @@ function setup() {
     P3.colour = BLUE;
     P4 = createVector(195,height - 20);
     P4.colour = WHITE;
+
+    //Setup controllers
+    sizeControlUp = createVector(250,height - 25);
+    sizeControlDown = createVector(295,height - 20);
+
+    //Setup helpers
+    drawSize = createVector(DEFAULTSIZE.x,DEFAULTSIZE.y);
 }
 
 function draw() {
   if (loading) return;
+
   DrawPalette();
   CheckPalettes();
 
   if (mouseIsPressed) {
       DrawDot();
-      if (socket) SendMouseInfo();
+      SendMouseInfo();
   }
+  CheckKeys();
 }
-
-//Testing canvas stuff
-/*
-var img;
-function keyPressed(e) {
-    if (e.key === "w") {
-        RequestCanvas();
-    }
-    if (e.key === "e") {
-        background(img);
-    }
-    if (e.key === "d") {
-        var s = get();
-        translate(30,30);
-        background(s);
-    }
-    if (e.key === "s") {
-        img = get();
-    }
-}
-*/
 
 //Canvas
-function DrawDot(x = mouseX, y = mouseY, dotColour = color(r,g,b)) {
+function DrawDot(x = mouseX, y = mouseY, dotColour = color(r,g,b), dotSize = drawSize) {
     noStroke();
     fill(dotColour);
-    ellipse(x, y , 25, 25);
+    ellipse(x, y , dotSize.x, dotSize.y);
+}
+
+function DrawRect(x = mouseX, y = mouseY, dotColour = color(r,g,b), rectSize = drawSize) {
+    noStroke();
+    fill(dotColour);
+    rect(x, y , rectSize.x, rectSize.y);
 }
 
 function DrawPalette() {
+    //Background for text display
+    DrawRect(width - 100, 0, WHITE, createVector(100, 90));
+
+    //Draw current size info
+    noStroke();
+    textAlign(RIGHT, RIGHT);
+    fill(BLACK);
+    //var drawSizeDisplay = 'Size = (' + Math.round(drawSize.x) + ', ' + Math.round(drawSize.y) + ')'; //x,y size
+    var drawSizeDisplay = 'Size: ' + Math.round(drawSize.x); //for now we just use one size for both width and height
+    text(drawSizeDisplay, width - 5, 10);
+
+    //Draw current colour info
+    fill(RED);
+    text(Math.round(r), width - 5, 35);
+    fill(GREEN);
+    text(Math.round(g), width - 37.5, 35);
+    fill(BLUE);
+    text(Math.round(b), width - 70, 35);
+
+    //Draw current rotation info
+
     //Draw current colour
     DrawDot(20,height - 20);
+
     //Palette divider
-    stroke(color(255, 255, 255));
+    stroke(WHITE);
     line(55, height - 5, 55, height - 35);
+
     //Draw palette
-    DrawDot(P1.x, P1.y, P1.colour);
-    DrawDot(P2.x, P2.y, P2.colour);
-    DrawDot(P3.x, P3.y, P3.colour);
-    DrawDot(P4.x, P4.y, P4.colour);
+    DrawDot(P1.x, P1.y, P1.colour, DEFAULTSIZE);
+    DrawDot(P2.x, P2.y, P2.colour, DEFAULTSIZE);
+    DrawDot(P3.x, P3.y, P3.colour, DEFAULTSIZE);
+    DrawDot(P4.x, P4.y, P4.colour, DEFAULTSIZE);
+
+    //Controller divider
+    stroke(WHITE);
+    line(225, height - 5, 225, height - 35);
+
+    //Draw controllers
+    DrawRect(sizeControlUp.x - 12, sizeControlUp.y + 2, WHITE, createVector(30,5));
+    DrawRect(sizeControlUp.x, sizeControlUp.y - 10, WHITE, createVector(5,30));
+    DrawRect(sizeControlDown.x - 12, sizeControlDown.y - 2, WHITE, createVector(30,5));
 }
 
 //Approach colour by amount each frame
@@ -125,16 +172,45 @@ function ApproachColour(colour, amount = random(0, 2)) {
     b = constrain(b, 0, 255);
 }
 
+function ControlSize(amountX = 0.1, amountY = amountX) {
+    drawSize.x += amountX;
+    drawSize.y += amountY;
+
+    drawSize.x = constrain(drawSize.x, 0.5, 100);
+    drawSize.y = constrain(drawSize.y, 0.5, 100);
+}
+
 function CheckPalettes() {
-    //If mouse is ove a palette, select that colour otherwise fade the colour closer to white or black
+    //If mouse is ove a palette, select that colour
     if (dist(P1.x, P1.y, mouseX, mouseY) < 20) { ApproachColour(P1.colour); }
     else if (dist(P2.x, P2.y, mouseX, mouseY) < 20) { ApproachColour(P2.colour); }
     else if (dist(P3.x, P3.y, mouseX, mouseY) < 20) { ApproachColour(P3.colour); }
     else if (dist(P4.x, P4.y, mouseX, mouseY) < 20) { ApproachColour(P4.colour); }
+    //Size controllers
+    else if (dist(sizeControlUp.x, sizeControlUp.y, mouseX, mouseY) < 20) { ControlSize(); }
+    else if (dist(sizeControlDown.x, sizeControlDown.y, mouseX, mouseY) < 20) { ControlSize(-0.1); }
+    //fade the colour closer to white or black
     else {
         if (mouseIsPressed) ApproachColour(WHITE);
         else ApproachColour(BLACK);
     }
+}
+
+function CheckKeys() {
+//http://keycode.info/
+    if (keyIsDown(49)) {
+        image(images[0], mouseX, mouseY, drawSize.x, drawSize.y);
+    }
+    else  if (keyIsDown(50)) {
+        image(images[1], mouseX, mouseY, drawSize.x, drawSize.y);
+    }
+    else if (keyIsDown(51)) {
+        image(images[2], mouseX, mouseY, drawSize.x, drawSize.y);
+    }
+}
+
+function ClearCanvas() {
+    background(20);
 }
 
 //Disable mobile default controls
@@ -153,7 +229,9 @@ function SendMouseInfo() {
         y: mouseY,
         r: r,
         g: g,
-        b: b
+        b: b,
+        sizeX: drawSize.x,
+        sizeY: drawSize.y
     };
 
     socket.emit('mouse', data);
@@ -172,16 +250,10 @@ function SendCanvas(from) {
     socket.emit('sendCanvas', data);
 }
 
-function RequestCanvas() {
-    socket.emit('loading', true);
-    socket.emit('requestCanvas', { from: socket.id });
-    console.log("Request sent.");
-}
-
 function SocketSetup() {
     //Receive
     socket.on('mouse', function(data) {
-        DrawDot(data.x, data.y, color(data.r, data.g, data.b));
+        DrawDot(data.x, data.y, color(data.r, data.g, data.b), createVector(data.sizeX,data.sizeY));
     });
 
     socket.on('requestCanvas', function(data) {
@@ -222,4 +294,5 @@ function SocketSetup() {
     });
 }
 
+//TODO: send events to other clients for CheckKeys() and ClearCanvas()
 //TODO: make the input button un-hide if a player fails to connect so they can retry connecting

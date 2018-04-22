@@ -9,15 +9,17 @@ var connectedUsers = [];
 
 app.use(express.static('public'));
 
-console.log("Listening on port 3000. Please port forward if you wish to connect over the internet.")
+console.log("Listening on port 3000. Please port forward if you wish to connect over the internet.\n")
 
 io.sockets.on('connection', function(socket) {
     //On connect, add the current connection to client list
     connectedUsers.push(socket.id);
 
     //Log user array and connections length
+    console.log("New user connected!\nUsers connected: " + Object.keys(io.sockets.connected).length);
+    console.log("Users:");
     console.log(connectedUsers);
-    console.log(Object.keys(io.sockets.connected).length);
+    console.log('');
 
     //Request canvas for the new client
     if (connectedUsers.length > 1) {
@@ -28,7 +30,6 @@ io.sockets.on('connection', function(socket) {
     else {
         io.emit('loading', false);
     }
-
 
     //On user disconnect, remove them from the client list
     socket.on('disconnect', function () {
@@ -50,7 +51,7 @@ io.sockets.on('connection', function(socket) {
         console.log("Got a request over here");
         if (connectedUsers.length > 1) {
             socket.to(connectedUsers[0]).emit('requestCanvas', { from: data.from });
-            console.log("Request from " + data.from + ". To " + connectedUsers[0]);
+            console.log("Canvas request from " + data.from + ". To " + connectedUsers[0]);
         }
         else {
             io.emit('loading', false);
@@ -63,4 +64,4 @@ io.sockets.on('connection', function(socket) {
 });
 
 //TODO: change loading bool into an int that increases and decreases so if more than one client joins, the loading isn't stopped early.
-//TODO: add a timeout/disconnect event to the loading so that if someone drops while loading it doesnt break all clients
+//TODO: add a timeout/disconnect event to the loading so that if someone drops while loading it doesn't break all clients
