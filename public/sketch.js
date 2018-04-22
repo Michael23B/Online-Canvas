@@ -1,11 +1,16 @@
-var socket = io.connect("localhost:3000");
-SocketSetup();
+var socket = io;
+
+//var socket = io.connect("localhost:3000");
+//SocketSetup();
+
 //keep track of our colour
 var r = 150, g = 150, b = 150;
 //predefine colours
 var BLACK, WHITE, RED, GREEN, BLUE;
 //palette objects (vector2 position with colour)
 var P1, P2, P3, P4;
+
+var loading = true;
 
 function setup() {
   createCanvas(800, 600);
@@ -21,12 +26,15 @@ function setup() {
     button = createButton('Connect to port');
     button.position(input.x + input.width, input.y);
     button.mousePressed(function() {
-        socket.disconnect(true);
+        //socket.disconnect(true);
         socket = io.connect(input.value().toString());
+
+        input.hide();
+        button.hide();
 
         SocketSetup();
 
-        //socket.emit('requestCanvas');
+        //RequestCanvas();
     });
 
     //Setup drawing
@@ -51,6 +59,7 @@ function setup() {
 }
 
 function draw() {
+  if (loading) return;
   DrawPalette();
   CheckPalettes();
 
@@ -59,11 +68,13 @@ function draw() {
       if (socket) SendMouseInfo();
   }
 }
+
+//Testing canvas stuff
+/*
 var img;
 function keyPressed(e) {
     if (e.key === "w") {
-        socket.emit('requestCanvas', { from: socket.id });
-        console.log("request sent");
+        RequestCanvas();
     }
     if (e.key === "e") {
         background(img);
@@ -77,6 +88,7 @@ function keyPressed(e) {
         img = get();
     }
 }
+*/
 
 //Canvas
 function DrawDot(x = mouseX, y = mouseY, dotColour = color(r,g,b)) {
@@ -149,15 +161,21 @@ function SendMouseInfo() {
 
 //When a new client joins, host will send his canvas pixel information
 function SendCanvas(from) {
-    //Default get() returns all pixels on the canvas as a pixel[]
-    //Client requesting canvas is stored in requestCanvas data
-    var canvasInfo = get();
+    loadPixels();
+    var canvasInfo = pixels;
+
     var data = {
         canvas: canvasInfo,
         to: from
-    }
-    console.log("SENDING THE CANVAS -------------------------");
+    };
+    console.log("Sending canvas");
     socket.emit('sendCanvas', data);
+}
+
+function RequestCanvas() {
+    socket.emit('loading', true);
+    socket.emit('requestCanvas', { from: socket.id });
+    console.log("Request sent.");
 }
 
 function SocketSetup() {
@@ -168,14 +186,40 @@ function SocketSetup() {
 
     socket.on('requestCanvas', function(data) {
         console.log("received a request from " + data.from);
+
+        loading = true;
         SendCanvas(data.from);
     });
 
     socket.on('sendCanvas', function(data) {
-        console.log("ok we got sent a canvas here. Canvas type = " + typeof(data.canvas));
-        console.log(data.canvas);
-        //image(data.canvas, 0,0);
-        background(data.canvas);
-        console.log("finished applying new canvas.");
+        loadPixels();
+        //this is omega slow
+        for (var i = 0; i < pixels.length; ++i) {
+            pixels[i] = data[i];
+        }
+        updatePixels();
+        console.log("Finished applying new canvas.");
+        socket.emit('loading', false);
+    });
+
+    socket.on('loading', function(data) {
+       loading = data;
+        textAlign(LEFT, TOP);
+       if (data) {
+           fill(GREEN);
+           noStroke();
+           rect(5, 60, 150, 25, 7.5, 7.5, 7.5, 7.5);
+           fill(WHITE);
+           text("Player loading...", 12.5, 63.5);
+       }
+       else {
+           fill(GREEN);
+           noStroke();
+           rect(5, 60, 150, 25, 7.5, 7.5, 7.5, 7.5);
+           fill(WHITE);
+           text("Player joined!", 12.5, 63.5);
+       }
     });
 }
+
+//TODO: make the input button un-hide if a player fails to connect so they can retry connecting
