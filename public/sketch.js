@@ -12,8 +12,21 @@ var P1, P2, P3, P4;
 var sizeControlUp, sizeControlDown;
 //image array
 var images = [];
-
+//word array
+var words = [];
+//is a client joining?
 var loading = true;
+//word guessing game object
+//TODO: send game to other players and hide/show guessing UI when appropriate
+var Game = {
+    currentWordIndex: 0,
+    currentPlayerId: 0,
+    gameActive: false,
+    guess: function (word) {
+        console.log(word + " <- (word). findIndex -> " + words.findIndex(x => x === word.toString()));
+        return words.findIndex(x => x === word.toString()) === this.currentWordIndex;
+    }
+};
 
 function preload() {
     images.push(loadImage('/img/krappa.png'));
@@ -26,6 +39,8 @@ function preload() {
     images.push(loadImage('/img/monkas.png'));
     images.push(loadImage('/img/monkamega.png'));
     images.push(loadImage('/img/monkaomega.png'));
+
+    words = loadStrings('words.txt');
 }
 
 function setup() {
@@ -60,6 +75,40 @@ function setup() {
     clearbtn.mousePressed(function() {
         ClearCanvas();
         socket.emit('clearCanvas');
+    });
+
+    //Setup game button
+    gamebtn = createButton(':)');
+    gamebtn.position(width - 75, 85);
+    gamebtn.size(60);
+    gamebtn.mousePressed(function() {
+        var wordIndex = Math.round(random(0, words.length - 1));
+        DrawWord(wordIndex);
+        Game.currentWordIndex = wordIndex;
+    });
+
+    //Setup game input
+    gameInput = createInput();
+    gameInput.position(width - 100, 110);
+    gameInput.size(80);
+    gameInput.input(function() {
+        //TODO: as players type, send the input to the other players to display what they are guessing
+        //When the correct guess is sent to the host, switch current player and give points
+        //also add a timer
+        if (Game.guess(gameInput.value())) {
+            DrawImage(1, gameInput.x - 30, gameInput.y, createVector(30,30));
+        }
+        else {
+            DrawImage(3, gameInput.x - 30, gameInput.y, createVector(30,30));
+        }
+    });
+
+    //Setup game guess button
+    guessbtn = createButton('guess');
+    guessbtn.position(width - 75, 140);
+    guessbtn.size(60);
+    guessbtn.mousePressed(function() {
+        console.log(Game.guess(gameInput.value()));
     });
 
     //Setup drawing
@@ -109,6 +158,7 @@ function draw() {
 }
 
 //Canvas
+//Drawing
 function DrawDot(x = mouseX, y = mouseY, dotColour = color(r,g,b), dotSize = drawSize) {
     noStroke();
     fill(dotColour);
@@ -126,9 +176,18 @@ function DrawImage(imageIndex, x = mouseX, y = mouseY, imageSize = drawSize) {
     image(images[imageIndex], x, y, imageSize.x * 2, imageSize.y * 2);
 }
 
+function DrawWord(wordIndex) {
+    var word = words[wordIndex];
+    DrawRect((width / 2) - 75, 0, color(20,20,20), createVector(150,25));
+    fill(WHITE);
+    textAlign(CENTER);
+    text(word.toString(), width / 2, 5);
+}
+
+//UI
 function DrawPalette() {
     //Background for text display
-    DrawRect(width - 100, 0, WHITE, createVector(100, 90));
+    DrawRect(width - 100, 0, WHITE, createVector(100, 110));
 
     //Draw current size info
     noStroke();
@@ -145,8 +204,6 @@ function DrawPalette() {
     text(Math.round(g), width - 37.5, 35);
     fill(BLUE);
     text(Math.round(b), width - 70, 35);
-
-    //Draw current rotation info
 
     //Draw current colour
     DrawDot(20,height - 20);
@@ -171,6 +228,7 @@ function DrawPalette() {
     DrawRect(sizeControlDown.x - 12, sizeControlDown.y - 2, WHITE, createVector(30,5));
 }
 
+//Controls
 //Approach colour by amount each frame
 function ApproachColour(colour, amount = random(0, 2)) {
     var newR = colour._array[0] * 255;
