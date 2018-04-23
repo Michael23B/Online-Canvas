@@ -1,5 +1,4 @@
 var socket = io;
-
 //var socket = io.connect("localhost:3000");
 //SocketSetup();
 
@@ -18,8 +17,15 @@ var loading = true;
 
 function preload() {
     images.push(loadImage('/img/krappa.png'));
-    images.push(loadImage('/img/omegalul.png'));
     images.push(loadImage('/img/seemsgood.png'));
+    images.push(loadImage('/img/pogchamp.png'));
+    images.push(loadImage('/img/jebaited.png'));
+    images.push(loadImage('/img/omegalul.png'));
+    images.push(loadImage('/img/babyrage.png'));
+    images.push(loadImage('/img/wutface.png'));
+    images.push(loadImage('/img/monkas.png'));
+    images.push(loadImage('/img/monkamega.png'));
+    images.push(loadImage('/img/monkaomega.png'));
 }
 
 function setup() {
@@ -53,8 +59,8 @@ function setup() {
     clearbtn.size(60);
     clearbtn.mousePressed(function() {
         ClearCanvas();
+        socket.emit('clearCanvas');
     });
-
 
     //Setup drawing
     strokeWeight(4);
@@ -96,7 +102,10 @@ function draw() {
       DrawDot();
       SendMouseInfo();
   }
-  CheckKeys();
+
+  if (keyIsPressed) {
+      CheckKeys();
+  }
 }
 
 //Canvas
@@ -110,6 +119,11 @@ function DrawRect(x = mouseX, y = mouseY, dotColour = color(r,g,b), rectSize = d
     noStroke();
     fill(dotColour);
     rect(x, y , rectSize.x, rectSize.y);
+}
+
+function DrawImage(imageIndex, x = mouseX, y = mouseY, imageSize = drawSize) {
+    //double draw size for images
+    image(images[imageIndex], x, y, imageSize.x * 2, imageSize.y * 2);
 }
 
 function DrawPalette() {
@@ -197,16 +211,13 @@ function CheckPalettes() {
 }
 
 function CheckKeys() {
-//http://keycode.info/
-    if (keyIsDown(49)) {
-        image(images[0], mouseX, mouseY, drawSize.x, drawSize.y);
-    }
-    else  if (keyIsDown(50)) {
-        image(images[1], mouseX, mouseY, drawSize.x, drawSize.y);
-    }
-    else if (keyIsDown(51)) {
-        image(images[2], mouseX, mouseY, drawSize.x, drawSize.y);
-    }
+    //http://keycode.info/
+    //keyCode 48 -> 57 == 0 -> 9 keys on keyboard
+    if (keyCode < 48 || keyCode > 57) return;
+    var i = keyCode - 48;
+
+    DrawImage(i);
+    SendImage(i);
 }
 
 function ClearCanvas() {
@@ -235,6 +246,18 @@ function SendMouseInfo() {
     };
 
     socket.emit('mouse', data);
+}
+
+function SendImage(index) {
+    var data = {
+        imgIndex: index,
+        posX: mouseX,
+        posY: mouseY,
+        imgSizeX: drawSize.x,
+        imgSizeY: drawSize.y
+    };
+
+    socket.emit('image', data);
 }
 
 //When a new client joins, host will send his canvas pixel information
@@ -291,6 +314,14 @@ function SocketSetup() {
            fill(WHITE);
            text("Player joined!", 12.5, 63.5);
        }
+    });
+
+    socket.on('clearCanvas', function() {
+        ClearCanvas();
+    });
+
+    socket.on('image', function(data) {
+        DrawImage(data.imgIndex, data.posX, data.posY, createVector(data.imgSizeX, data.imgSizeY));
     });
 }
 

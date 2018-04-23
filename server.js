@@ -41,6 +41,16 @@ io.sockets.on('connection', function(socket) {
         socket.broadcast.emit('mouse', data);
     });
 
+    //On 'image' -> everyone but sender
+    socket.on('image', function(data) {
+        socket.broadcast.emit('image', data);
+    });
+
+    //On 'clearCanvas' -> everyone but sender
+    socket.on('clearCanvas', function() {
+        socket.broadcast.emit('clearCanvas');
+    });
+
     //On 'sendCanvas', send the canvas to the new client
     socket.on('sendCanvas', function(data) {
         socket.to(data.to).emit('sendCanvas', data.canvas);

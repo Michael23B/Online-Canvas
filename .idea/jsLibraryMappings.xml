@@ -2,5 +2,6 @@
 <project version="4">
   <component name="JavaScriptLibraryMappings">
     <file url="PROJECT" libraries="{p5, p5.dom, p5.sound, socket.io}" />
+    <includedPredefinedLibrary name="Node.js Core" />
   </component>
 </project>
