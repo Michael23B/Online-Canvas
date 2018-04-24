@@ -5,9 +5,12 @@ var server = app.listen(3000);
 
 var socket = require('socket.io');
 var io = socket(server);
-var connectedUsers = [];
 
 app.use(express.static('public'));
+
+var connectedUsers = [];
+var gamePlayers = [];
+var playerId = 0;
 
 console.log("Listening on port 3000. Please port forward if you wish to connect over the internet.\n")
 
@@ -51,13 +54,6 @@ io.sockets.on('connection', function(socket) {
         socket.broadcast.emit('clearCanvas');
     });
 
-    //On 'guess' -> everyone but sender
-    socket.on('guess', function(data) {
-        socket.broadcast.emit('guess', data);
-    });
-    //TODO: on guess i need to send to host, then reply if its correct or incorrect OR
-    //when the word is chosen send it to everyone so they each know if its correct
-
     //On 'sendCanvas', send the canvas to the new client
     socket.on('sendCanvas', function(data) {
         socket.to(data.to).emit('sendCanvas', data.canvas);
@@ -77,6 +73,45 @@ io.sockets.on('connection', function(socket) {
 
     socket.on('loading', function(data) {
         io.emit('loading', data);
+    });
+
+    //Drawing game functions
+
+    //On 'startGame' -> everyone
+    socket.on('startGame', function() {
+        gamePlayers = connectedUsers;
+        //playerId = gamePlayers.findIndex(x => x === socket.id);
+        playerId = socket.id;
+        var data = {
+            players: gamePlayers,
+            currentPlayerId: playerId
+        };
+
+        io.emit('startGame', data);
+    });
+
+    //On 'guess' -> player who is currently drawing
+    socket.on('guess', function(data) {
+        socket.to(gamePlayers[gamePlayers.findIndex(x => x === playerId)]).emit('guess', data);
+    });
+
+    //On 'guessReply' -> everyone but sender
+    socket.on('guessReply', function(data) {
+        socket.broadcast.emit('guessReply', data);
+    });
+
+    //On 'nextPlayer' -> everyone
+    socket.on('nextPlayer', function() {
+
+        var currPlayerIndex = gamePlayers.findIndex(x => x === socket.id);
+        currPlayerIndex++;
+        currPlayerIndex %= gamePlayers.length;
+        playerId = gamePlayers[currPlayerIndex];
+
+        var data = {
+            currentPlayerId: playerId
+        };
+        io.emit('startGame', data);
     });
 });
 

@@ -23,9 +23,10 @@ var Game = {
     currentPlayerId: 0,
     gameActive: false,
     guess: function (word) {
-        console.log(word + " <- (word). findIndex -> " + words.findIndex(x => x === word.toString()));
         return words.findIndex(x => x === word) === this.currentWordIndex;
-    }
+    },
+    gamebtn: undefined,
+    gameInput: undefined
 };
 
 function preload() {
@@ -59,7 +60,6 @@ function setup() {
     button = createButton('Connect to port');
     button.position(input.x + input.width, input.y);
     button.mousePressed(function() {
-        //socket.disconnect(true);
         socket = io.connect(input.value().toString());
 
         input.hide();
@@ -78,34 +78,25 @@ function setup() {
     });
 
     //Setup game button
-    gamebtn = createButton(':)');
-    gamebtn.position(width - 75, 85);
-    gamebtn.size(60);
-    gamebtn.mousePressed(function() {
-        var wordIndex = Math.round(random(0, words.length - 1));
-        DrawWord(wordIndex);
-        Game.currentWordIndex = wordIndex;
+    Game.gamebtn = createButton(':)');
+    Game.gamebtn.position(width - 75, 85);
+    Game.gamebtn.size(60);
+    Game.gamebtn.mousePressed(function() {
+        socket.emit('startGame');
+        Game.gamebtn.hide();
+        Game.gameInput.hide();
     });
 
     //Setup game input
-    gameInput = createInput();
-    gameInput.position(width - 100, 110);
-    gameInput.size(80);
-    gameInput.input(function() {
-        //TODO: as players type, send the input to the other players to display what they are guessing
+    Game.gameInput = createInput();
+    Game.gameInput.position(width - 100, 110);
+    Game.gameInput.size(90);
+    Game.gameInput.input(function() {
         //When the correct guess is sent to the host, switch current player and give points
         //also add a timer
-        var guess = gameInput.value();
+        var guess = Game.gameInput.value();
         if (guess.length > 20) return;  //stop user from typing long words
         SendGuess(guess);
-    });
-
-    //Setup game guess button
-    guessbtn = createButton('guess');
-    guessbtn.position(width - 75, 140);
-    guessbtn.size(60);
-    guessbtn.mousePressed(function() {
-        console.log(Game.guess(gameInput.value()));
     });
 
     //Setup drawing
@@ -236,7 +227,7 @@ function DrawPalette() {
 
 //Controls
 //Approach colour by amount each frame
-function ApproachColour(colour, amount = random(0, 2)) {
+function ApproachColour(colour, amount = random(0, 4)) {
     var newR = colour._array[0] * 255;
     var newG = colour._array[1] * 255;
     var newB = colour._array[2] * 255;
@@ -250,12 +241,12 @@ function ApproachColour(colour, amount = random(0, 2)) {
     b = constrain(b, 0, 255);
 }
 
-function ControlSize(amountX = 0.1, amountY = amountX) {
+function ControlSize(amountX = 0.75, amountY = amountX) {
     drawSize.x += amountX;
     drawSize.y += amountY;
 
-    drawSize.x = constrain(drawSize.x, 0.5, 100);
-    drawSize.y = constrain(drawSize.y, 0.5, 100);
+    drawSize.x = constrain(drawSize.x, 1, 125);
+    drawSize.y = constrain(drawSize.y, 1, 125);
 }
 
 function CheckPalettes() {
@@ -269,8 +260,8 @@ function CheckPalettes() {
     else if (dist(sizeControlDown.x, sizeControlDown.y, mouseX, mouseY) < 20) { ControlSize(-0.1); }
     //fade the colour closer to white or black
     else {
-        if (mouseIsPressed) ApproachColour(WHITE);
-        else ApproachColour(BLACK);
+        if (mouseIsPressed) ApproachColour(WHITE, random(0, 2));
+        else ApproachColour(BLACK, random(0, 2));
     }
 }
 
@@ -337,11 +328,11 @@ function SendCanvas(from) {
     socket.emit('sendCanvas', data);
 }
 
+//Guessing game
 function SendGuess(guess) {
     var data = {
         guess: guess,
-        posX: mouseX,
-        posY: mouseY
+        player: socket.id
     };
 
     socket.emit('guess', data);
@@ -389,7 +380,7 @@ function SocketSetup() {
            text("Player joined!", 12.5, 63.5);
        }
     });
-
+    //TODO: replace this function its way too slow
     socket.on('clearCanvas', function() {
         ClearCanvas();
     });
@@ -399,13 +390,52 @@ function SocketSetup() {
     });
 
     socket.on('guess', function(data) {
+        //if the game hasn't started or you aren't the current player, return
+        if (Game.currentPlayerId !== socket.id || Game.gameActive === false) return;
+
         if (Game.guess(data.guess)) {
-            DrawWord(data.guess, data.posX, data.posY, GREEN);
-            DrawImage(1, data.posX - 100, data.posY, createVector(30,30));
+            DrawWord(data.guess, width - 100, height - 100, GREEN);
+            DrawImage(1, width - 30, height - 100, createVector(30,30));
+
+            //TODO: give the player points and move to the next player
+            Game.currentPlayerId = -1; //This round if finished, don't accept any more guesses
+            socket.emit('guessReply', { guess: data.guess, player: data.player, result: true });
+            socket.emit('nextPlayer');
         }
         else {
-            DrawWord(data.guess, data.posX, data.posY, RED);
+            DrawWord(data.guess, width - 100, height - 100, RED);
+            DrawImage(1, width - 30, height - 100, createVector(30,30));
+
+            socket.emit('guessReply', { guess: data.guess, player: data.player, result: false });
         }
+    });
+
+    socket.on('guessReply', function(data) {
+        if (data.result) {
+            DrawWord(data.guess, width - 100, height - 100, GREEN);
+            DrawImage(1, width - 30, height - 100, createVector(30,30));
+            //TODO: give the player points and move to the next player
+        }
+        else {
+            DrawWord(data.guess, width - 100, height - 100, RED);
+            DrawImage(3, width - 30, height - 100, createVector(30,30));
+        }
+    });
+
+    socket.on('startGame', function(data) {
+        Game.gamebtn.hide();
+        if (data.currentPlayerId === socket.id) {
+            var wordIndex = Math.round(random(0, words.length - 1));
+            DrawWord(wordIndex);
+            Game.currentWordIndex = wordIndex;
+            Game.gameInput.hide();
+        }
+        else {
+            Game.gameInput.show();
+        }
+        Game.gameActive = true;
+        Game.currentPlayerId = data.currentPlayerId;
+        Game.gameInput.value('');
     });
 }
 
