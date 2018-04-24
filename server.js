@@ -51,6 +51,13 @@ io.sockets.on('connection', function(socket) {
         socket.broadcast.emit('clearCanvas');
     });
 
+    //On 'guess' -> everyone but sender
+    socket.on('guess', function(data) {
+        socket.broadcast.emit('guess', data);
+    });
+    //TODO: on guess i need to send to host, then reply if its correct or incorrect OR
+    //when the word is chosen send it to everyone so they each know if its correct
+
     //On 'sendCanvas', send the canvas to the new client
     socket.on('sendCanvas', function(data) {
         socket.to(data.to).emit('sendCanvas', data.canvas);

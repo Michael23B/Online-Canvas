@@ -3,7 +3,7 @@ var socket = io;
 //SocketSetup();
 
 //keep track of our colour
-var r = 150, g = 150, b = 150, drawSize;
+var r = 150, g = 150, b = 150, drawSize; //TODO: add an alpha for colour and velocity for increasing size/colour.
 //predefine constants
 var BLACK, WHITE, RED, GREEN, BLUE, DEFAULTSIZE;
 //palette objects (vector2 position with colour)
@@ -24,7 +24,7 @@ var Game = {
     gameActive: false,
     guess: function (word) {
         console.log(word + " <- (word). findIndex -> " + words.findIndex(x => x === word.toString()));
-        return words.findIndex(x => x === word.toString()) === this.currentWordIndex;
+        return words.findIndex(x => x === word) === this.currentWordIndex;
     }
 };
 
@@ -39,12 +39,12 @@ function preload() {
     images.push(loadImage('/img/monkas.png'));
     images.push(loadImage('/img/monkamega.png'));
     images.push(loadImage('/img/monkaomega.png'));
-
+//TODO: User drop to let clients upload custom images. https://p5js.org/reference/#/p5.Element/drop
     words = loadStrings('words.txt');
 }
 
 function setup() {
-  createCanvas(800, 600);
+  createCanvas(1200, 800);
   background(20);
   //Setup ip input
     input = createInput(getURL());
@@ -95,12 +95,9 @@ function setup() {
         //TODO: as players type, send the input to the other players to display what they are guessing
         //When the correct guess is sent to the host, switch current player and give points
         //also add a timer
-        if (Game.guess(gameInput.value())) {
-            DrawImage(1, gameInput.x - 30, gameInput.y, createVector(30,30));
-        }
-        else {
-            DrawImage(3, gameInput.x - 30, gameInput.y, createVector(30,30));
-        }
+        var guess = gameInput.value();
+        if (guess.length > 20) return;  //stop user from typing long words
+        SendGuess(guess);
     });
 
     //Setup game guess button
@@ -160,6 +157,7 @@ function draw() {
 //Canvas
 //Drawing
 function DrawDot(x = mouseX, y = mouseY, dotColour = color(r,g,b), dotSize = drawSize) {
+    //TODO: Separate draw dot from manual input and draw dot for UI, then add all manual to an array to send to other clients when they join
     noStroke();
     fill(dotColour);
     ellipse(x, y , dotSize.x, dotSize.y);
@@ -176,12 +174,20 @@ function DrawImage(imageIndex, x = mouseX, y = mouseY, imageSize = drawSize) {
     image(images[imageIndex], x, y, imageSize.x * 2, imageSize.y * 2);
 }
 
-function DrawWord(wordIndex) {
-    var word = words[wordIndex];
-    DrawRect((width / 2) - 75, 0, color(20,20,20), createVector(150,25));
-    fill(WHITE);
-    textAlign(CENTER);
-    text(word.toString(), width / 2, 5);
+function DrawWord(wordOrIndex, posX = 0, posY = 0, colour = WHITE) {
+    if (typeof wordOrIndex === "number") {
+        var word = words[wordOrIndex];
+        DrawRect((width / 2) - 75, 0, color(20,20,20), createVector(150,25));
+        fill(WHITE);
+        textAlign(CENTER);
+        text(word, width / 2, 5);
+    }
+    else {
+        DrawRect(posX - 75, posY, color(20,20,20), createVector(150,25));
+        fill(colour);
+        textAlign(CENTER);
+        text(wordOrIndex, posX, posY + 5);
+    }
 }
 
 //UI
@@ -331,6 +337,16 @@ function SendCanvas(from) {
     socket.emit('sendCanvas', data);
 }
 
+function SendGuess(guess) {
+    var data = {
+        guess: guess,
+        posX: mouseX,
+        posY: mouseY
+    };
+
+    socket.emit('guess', data);
+}
+
 function SocketSetup() {
     //Receive
     socket.on('mouse', function(data) {
@@ -380,6 +396,16 @@ function SocketSetup() {
 
     socket.on('image', function(data) {
         DrawImage(data.imgIndex, data.posX, data.posY, createVector(data.imgSizeX, data.imgSizeY));
+    });
+
+    socket.on('guess', function(data) {
+        if (Game.guess(data.guess)) {
+            DrawWord(data.guess, data.posX, data.posY, GREEN);
+            DrawImage(1, data.posX - 100, data.posY, createVector(30,30));
+        }
+        else {
+            DrawWord(data.guess, data.posX, data.posY, RED);
+        }
     });
 }
 
