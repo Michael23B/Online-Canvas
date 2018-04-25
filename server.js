@@ -25,7 +25,8 @@ io.sockets.on('connection', function(socket) {
     console.log('');
 
     //Request canvas for the new client
-    if (connectedUsers.length > 1) {
+    //TEMPORARY DISABLE BECAUSE ITS MEGA SLOW
+    if (connectedUsers.length > 10) {
         socket.to(connectedUsers[0]).emit('requestCanvas', { from: socket.id });
         console.log("Request from " + socket.id + ". To " + connectedUsers[0]);
         io.emit('loading', true);

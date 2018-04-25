@@ -5,22 +5,21 @@ var socket = io;
 //keep track of our colour
 var r = 150, g = 150, b = 150, drawSize; //TODO: add an alpha for colour and velocity for increasing size/colour.
 //predefine constants
-var BLACK, WHITE, RED, GREEN, BLUE, DEFAULTSIZE;
-//palette objects (vector2 position with colour)
-var P1, P2, P3, P4;
-//controller objects
-var sizeControlUp, sizeControlDown;
+var BLACK, WHITE, RED, GREEN, BLUE, DEFAULTSIZE, PLAYERLISTPOS;
 //image array
 var images = [];
 //word array
 var words = [];
 //is a client joining?
 var loading = true;
+//currently pressed keys
+var keys = [];
 //word guessing game object
 //TODO: send game to other players and hide/show guessing UI when appropriate
 var Game = {
     currentWordIndex: 0,
     currentPlayerId: 0,
+    players: [],
     gameActive: false,
     guess: function (word) {
         return words.findIndex(x => x === word) === this.currentWordIndex;
@@ -30,17 +29,12 @@ var Game = {
 };
 
 function preload() {
-    images.push(loadImage('/img/krappa.png'));
-    images.push(loadImage('/img/seemsgood.png'));
-    images.push(loadImage('/img/pogchamp.png'));
-    images.push(loadImage('/img/jebaited.png'));
-    images.push(loadImage('/img/omegalul.png'));
-    images.push(loadImage('/img/babyrage.png'));
-    images.push(loadImage('/img/wutface.png'));
-    images.push(loadImage('/img/monkas.png'));
-    images.push(loadImage('/img/monkamega.png'));
-    images.push(loadImage('/img/monkaomega.png'));
-//TODO: User drop to let clients upload custom images. https://p5js.org/reference/#/p5.Element/drop
+    var imgCount = 10;  //number of images in 'img/' to load
+    for (var i = 0; i < imgCount; ++i) {
+        images[i] = loadImage('/img/' + i + '.png');
+    }
+
+//TODO: Use drop to let clients upload custom images. https://p5js.org/reference/#/p5.Element/drop
     words = loadStrings('words.txt');
 }
 
@@ -70,8 +64,8 @@ function setup() {
 
     //Setup clear button
     clearbtn = createButton('!!!');
-    clearbtn.position(width - 75, 60);
-    clearbtn.size(60);
+    clearbtn.position(width - 80, height - 30);
+    clearbtn.size(75);
     clearbtn.mousePressed(function() {
         ClearCanvas();
         socket.emit('clearCanvas');
@@ -79,8 +73,8 @@ function setup() {
 
     //Setup game button
     Game.gamebtn = createButton(':)');
-    Game.gamebtn.position(width - 75, 85);
-    Game.gamebtn.size(60);
+    Game.gamebtn.position(width - 160, height - 30);
+    Game.gamebtn.size(75);
     Game.gamebtn.mousePressed(function() {
         socket.emit('startGame');
         Game.gamebtn.hide();
@@ -89,8 +83,8 @@ function setup() {
 
     //Setup game input
     Game.gameInput = createInput();
-    Game.gameInput.position(width - 100, 110);
-    Game.gameInput.size(90);
+    Game.gameInput.position(width - 150, height - 60);
+    Game.gameInput.size(130);
     Game.gameInput.input(function() {
         //When the correct guess is sent to the host, switch current player and give points
         //also add a timer
@@ -98,6 +92,7 @@ function setup() {
         if (guess.length > 20) return;  //stop user from typing long words
         SendGuess(guess);
     });
+    Game.gameInput.hide();
 
     //Setup drawing
     strokeWeight(4);
@@ -110,20 +105,7 @@ function setup() {
     GREEN = color(40, 255, 40);
     BLUE = color(40, 40, 255);
     DEFAULTSIZE = createVector(25,25);
-
-    //Setup palettes
-    P1 = createVector(90,height - 20);
-    P1.colour = RED;
-    P2 = createVector(125,height - 20);
-    P2.colour = GREEN;
-    P3 = createVector(160,height - 20);
-    P3.colour = BLUE;
-    P4 = createVector(195,height - 20);
-    P4.colour = WHITE;
-
-    //Setup controllers
-    sizeControlUp = createVector(250,height - 25);
-    sizeControlDown = createVector(295,height - 20);
+    PLAYERLISTPOS = createVector(width - 150, height - 100);
 
     //Setup helpers
     drawSize = createVector(DEFAULTSIZE.x,DEFAULTSIZE.y);
@@ -132,17 +114,16 @@ function setup() {
 function draw() {
   if (loading) return;
 
+  CheckInput();
   DrawPalette();
-  CheckPalettes();
 
   if (mouseIsPressed) {
       DrawDot();
       SendMouseInfo();
+      //Brighten colour while painting
+      ApproachColour(WHITE, random(0, 2));
   }
-
-  if (keyIsPressed) {
-      CheckKeys();
-  }
+  else ApproachColour(BLACK, random(0, 2));
 }
 
 //Canvas
@@ -184,12 +165,12 @@ function DrawWord(wordOrIndex, posX = 0, posY = 0, colour = WHITE) {
 //UI
 function DrawPalette() {
     //Background for text display
-    DrawRect(width - 100, 0, WHITE, createVector(100, 110));
+    DrawRect(width - 110, 0, color(21,21,21), createVector(110, 55));
 
     //Draw current size info
     noStroke();
     textAlign(RIGHT, RIGHT);
-    fill(BLACK);
+    fill(WHITE);
     //var drawSizeDisplay = 'Size = (' + Math.round(drawSize.x) + ', ' + Math.round(drawSize.y) + ')'; //x,y size
     var drawSizeDisplay = 'Size: ' + Math.round(drawSize.x); //for now we just use one size for both width and height
     text(drawSizeDisplay, width - 5, 10);
@@ -203,26 +184,7 @@ function DrawPalette() {
     text(Math.round(b), width - 70, 35);
 
     //Draw current colour
-    DrawDot(20,height - 20);
-
-    //Palette divider
-    stroke(WHITE);
-    line(55, height - 5, 55, height - 35);
-
-    //Draw palette
-    DrawDot(P1.x, P1.y, P1.colour, DEFAULTSIZE);
-    DrawDot(P2.x, P2.y, P2.colour, DEFAULTSIZE);
-    DrawDot(P3.x, P3.y, P3.colour, DEFAULTSIZE);
-    DrawDot(P4.x, P4.y, P4.colour, DEFAULTSIZE);
-
-    //Controller divider
-    stroke(WHITE);
-    line(225, height - 5, 225, height - 35);
-
-    //Draw controllers
-    DrawRect(sizeControlUp.x - 12, sizeControlUp.y + 2, WHITE, createVector(30,5));
-    DrawRect(sizeControlUp.x, sizeControlUp.y - 10, WHITE, createVector(5,30));
-    DrawRect(sizeControlDown.x - 12, sizeControlDown.y - 2, WHITE, createVector(30,5));
+    DrawDot(20,height - 20, color(r,g,b), createVector(30,30));
 }
 
 //Controls
@@ -241,6 +203,40 @@ function ApproachColour(colour, amount = random(0, 4)) {
     b = constrain(b, 0, 255);
 }
 
+function CheckInput() {
+    for (var i = 0; i < keys.length; ++i) {
+        DoWork(keys[i]);
+    }
+}
+
+function DoWork(key) {
+    //image keys
+    if (key >= 0 && key <= 9) {
+        PlaceImageByIndex(key);
+        return;
+    }
+    //control drawing keys
+    switch (key) {
+        case 'q':
+            ApproachColour(RED);
+            break;
+        case 'w':
+            ApproachColour(GREEN);
+            break;
+        case 'e':
+            ApproachColour(BLUE);
+            break;
+        case 'd':
+            ControlSize();
+            break;
+        case 's':
+            ControlSize(-0.75);
+            break;
+        default:
+            break;
+    }
+}
+
 function ControlSize(amountX = 0.75, amountY = amountX) {
     drawSize.x += amountX;
     drawSize.y += amountY;
@@ -249,30 +245,19 @@ function ControlSize(amountX = 0.75, amountY = amountX) {
     drawSize.y = constrain(drawSize.y, 1, 125);
 }
 
-function CheckPalettes() {
-    //If mouse is ove a palette, select that colour
-    if (dist(P1.x, P1.y, mouseX, mouseY) < 20) { ApproachColour(P1.colour); }
-    else if (dist(P2.x, P2.y, mouseX, mouseY) < 20) { ApproachColour(P2.colour); }
-    else if (dist(P3.x, P3.y, mouseX, mouseY) < 20) { ApproachColour(P3.colour); }
-    else if (dist(P4.x, P4.y, mouseX, mouseY) < 20) { ApproachColour(P4.colour); }
-    //Size controllers
-    else if (dist(sizeControlUp.x, sizeControlUp.y, mouseX, mouseY) < 20) { ControlSize(); }
-    else if (dist(sizeControlDown.x, sizeControlDown.y, mouseX, mouseY) < 20) { ControlSize(-0.1); }
-    //fade the colour closer to white or black
-    else {
-        if (mouseIsPressed) ApproachColour(WHITE, random(0, 2));
-        else ApproachColour(BLACK, random(0, 2));
-    }
-}
-
-function CheckKeys() {
-    //http://keycode.info/
-    //keyCode 48 -> 57 == 0 -> 9 keys on keyboard
-    if (keyCode < 48 || keyCode > 57) return;
-    var i = keyCode - 48;
-
+function PlaceImageByIndex(i) {
     DrawImage(i);
     SendImage(i);
+}
+
+//keep track of all keys being held down
+function keyPressed() {
+    keys.push(key.toLowerCase());
+}
+
+function keyReleased(e) {
+    var keyIndex = keys.findIndex(x => x === e.key.toLowerCase());
+    keys.splice(keyIndex, 1);
 }
 
 function ClearCanvas() {
@@ -343,7 +328,7 @@ function SocketSetup() {
     socket.on('mouse', function(data) {
         DrawDot(data.x, data.y, color(data.r, data.g, data.b), createVector(data.sizeX,data.sizeY));
     });
-
+    //TODO: replace this function its way too slow
     socket.on('requestCanvas', function(data) {
         console.log("received a request from " + data.from);
 
@@ -380,7 +365,7 @@ function SocketSetup() {
            text("Player joined!", 12.5, 63.5);
        }
     });
-    //TODO: replace this function its way too slow
+
     socket.on('clearCanvas', function() {
         ClearCanvas();
     });
@@ -436,8 +421,16 @@ function SocketSetup() {
         Game.gameActive = true;
         Game.currentPlayerId = data.currentPlayerId;
         Game.gameInput.value('');
+        Game.players = data.players;
+        //draw players tags
+        /*
+        for (var i = 0; i < Game.players.length; ++i) {
+            let ii = i;
+            DrawWord("P" + (ii+1).toString(), PLAYERLISTPOS.x - (ii * 25), PLAYERLISTPOS.y);
+        }
+        */
     });
 }
 
-//TODO: send events to other clients for CheckKeys() and ClearCanvas()
+//TODO: send events to other clients for PlaceImageByIndex() and ClearCanvas()
 //TODO: make the input button un-hide if a player fails to connect so they can retry connecting
