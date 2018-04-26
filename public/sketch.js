@@ -15,21 +15,108 @@ var loading = true;
 //currently pressed keys
 var keys = [];
 //word guessing game object
-//TODO: send game to other players and hide/show guessing UI when appropriate
 var Game = {
+    //Variables
     currentWordIndex: 0,
     currentWord: "",
+    hint: "",
     currentPlayerId: 0,
     players: [],
     //playerPos array maps the position of the player at the same index in Game.players
     playerPos: [],
     gameActive: false,
+    //Functions
     guess: function (word) {
         return words.findIndex(x => x === word) === this.currentWordIndex;
     },
+    guessReply: function(result, data) {
+        if (result) {
+            //TODO: give the player points
+            Game.currentPlayerId = null; //This round if finished, don't accept any more guesses
+            Game.currentWordIndex = null;
+            Game.currentWord = "";
+            Game.hint = "";
+            DrawWord(" ");  //Clear the previous word
+            socket.emit('guessReply', { guess: data.guess, player: data.player, result: result });
+            socket.emit('nextPlayer');
+        }
+        else {
+            socket.emit('guessReply', { guess: data.guess, player: data.player, result: result });
+        }
+    },
+    beginRound: function (drawer, data) {
+        if (drawer) {
+            //Get a random word and draw it
+            var wordIndex = Math.round(random(0, words.length - 1));
+            DrawWord(wordIndex);
+
+            //Setup game variables (drawer only)
+            Game.currentWordIndex = wordIndex;
+            Game.currentWord = words[wordIndex];
+            Game.gameInput.hide();
+            Game.getHint();
+
+            //Send the other players a hint
+            socket.emit('hint', Game.hint);
+        }
+        else {
+            Game.gameInput.show();
+            Game.currentWord = "";
+        }
+
+        //Setup game variables (all players)
+        Game.gamebtn.hide();
+        Game.gameActive = true;
+        Game.currentPlayerId = data.currentPlayerId;
+        Game.gameInput.value('');
+        Game.players = data.players;
+
+        //Draw players tags
+        for (var i = 0; i < Game.players.length; ++i) {
+            (function (i) {
+                //Current drawer name is blue
+                var textCol = Game.players[i] === data.currentPlayerId ? DISPLAYBLUE : WHITE;
+                //Order positions with player 1 at the top
+                var playerPosOrder = (Game.players.length - 1) - i;
+                //Set player positions (used for drawing their guesses and names)
+                Game.playerPos[i] = createVector(PLAYERLISTPOS.x, PLAYERLISTPOS.y - (playerPosOrder * 50));
+
+                DrawWord('P' + (i+1) + ':', Game.playerPos[i].x, Game.playerPos[i].y, textCol, 40);
+            }).call(this, i);
+        }
+    },
+    getHint: function() {
+        Game.hint = "";
+
+        for (var i = 0; i < Game.currentWord.length; ++i) {
+            Game.hint += "_ ";
+        }
+    },
+    improveHint: function() {
+        //Hint is "_ " repeated so every second letter (' ') we don't want to replace
+        var charIndex;
+
+        if (Game.hint.search("_") !== -1) {
+            //We know we have an '_' so loop until we find one to replace
+            do {
+                charIndex = Math.round(random(0, Game.currentWord.length - 1));
+            }
+            while(Game.hint[charIndex * 2] !== "_");
+
+            //Replace the _ with a character from the word
+            var newHint = Game.hint.substring(0, charIndex * 2)
+                + Game.currentWord[charIndex]
+                + Game.hint.substring((charIndex * 2) + 1, Game.hint.length);
+
+            Game.hint = newHint;
+        }
+    },
+    //UI
     gamebtn: undefined,
     gameInput: undefined
 };
+//timer
+var timer = 1, countDown = 0;
 
 function preload() {
     var imgCount = 10;  //number of images in 'img/' to load
@@ -89,8 +176,6 @@ function setup() {
     Game.gameInput.position(width - 150, height - 60);
     Game.gameInput.size(130);
     Game.gameInput.input(function() {
-        //When the correct guess is sent to the host, switch current player and give points
-        //also add a timer
         var guess = Game.gameInput.value();
         if (guess.length > 20) return;  //stop user from typing long words
         SendGuess(guess);
@@ -120,6 +205,7 @@ function setup() {
 function draw() {
   if (loading) return;
 
+  CheckTimer();
   CheckInput();
   DrawPalette();
 
@@ -152,10 +238,10 @@ function DrawImage(imageIndex, x = mouseX, y = mouseY, imageSize = drawSize) {
     image(images[imageIndex], x, y, imageSize.x * 2, imageSize.y * 2);
 }
 
-function DrawWord(wordOrIndex, posX = width / 2, posY = 5, colour = WHITE, rectSizeX = 150) {
+function DrawWord(wordOrIndex, posX = width / 2, posY = 5, colour = WHITE, rectSizeX = 225) {
     if (typeof wordOrIndex === "number") {
         var word = words[wordOrIndex];
-        DrawRect(posX - rectSizeX / 2, posY - 5, color(20,20,20), createVector(rectSizeX,25));
+        DrawRect(posX - rectSizeX / 2, posY + 5, color(20,20,20), createVector(rectSizeX,30));
         fill(WHITE);
         textAlign(CENTER);
         text(word, posX, 5);
@@ -221,6 +307,24 @@ function ApproachColour(colour, amount = random(0, 4), darken = false) {
     b = constrain(b, 0, 255);
 }
 
+function CheckTimer() {
+    if (countDown !== 0) {
+        if (timer % 60 === 0) {
+            timer = 1;
+            countDown--;
+            if (countDown === 0) {
+                if (Game.currentPlayerId !== socket.id) return;
+                Game.improveHint();
+                socket.emit('hint', Game.hint);
+                console.log(Game.hint);
+            }
+        }
+        else {
+            timer++;
+        }
+    }
+}
+
 function CheckInput() {
     for (var i = 0; i < keys.length; ++i) {
         DoWork(keys[i]);
@@ -229,9 +333,9 @@ function CheckInput() {
 
 function DoWork(key) {
     //image keys
-    if (key == null || key === " ") return;
+    if (!key || key === " ") return;
     if (key >= 0 && key <= 9) {
-        PlaceImageByIndex(key);
+        PlaceImageByIndex(Number(key));
         return;
     }
     //control drawing keys
@@ -271,12 +375,14 @@ function PlaceImageByIndex(i) {
 
 //keep track of all keys being held down
 function keyPressed() {
+    //ignore tab, backspace, enter and space
+    if (keyCode === 9 || keyCode === 8 || keyCode === 13 || keyCode === 32) return;
     keys.push(key.toLowerCase());
 }
 
 function keyReleased(e) {
     var keyIndex = keys.findIndex(x => x === e.key.toLowerCase());
-    keys.splice(keyIndex, 1);
+    if (keyIndex !== -1) keys.splice(keyIndex, 1);
 }
 
 function ClearCanvas() {
@@ -401,23 +507,16 @@ function SocketSetup() {
         var playerGuessPos = Game.playerPos[Game.players.indexOf(data.player)];
 
         if (Game.guess(data.guess)) {
-            DrawWord(data.guess, width - 100, playerGuessPos.y, DISPLAYGREEN);
+            DrawWord(data.guess, width - 100, playerGuessPos.y, DISPLAYGREEN, 150);
             DrawImage(1, width - 30, playerGuessPos.y, createVector(30,30));
 
-            //TODO: give the player points
-            //TODO: should really put this into a Game function
-            Game.currentPlayerId = -1; //This round if finished, don't accept any more guesses
-            Game.currentWordIndex = null;
-            Game.currentWord = "";
-            DrawWord(" ");
-            socket.emit('guessReply', { guess: data.guess, player: data.player, result: true });
-            socket.emit('nextPlayer');
+            Game.guessReply(true, data);
         }
         else {
-            DrawWord(data.guess, width - 100, playerGuessPos.y, DISPLAYRED);
+            DrawWord(data.guess, width - 100, playerGuessPos.y, DISPLAYRED, 150);
             DrawImage(3, width - 30, playerGuessPos.y, createVector(30,30));
 
-            socket.emit('guessReply', { guess: data.guess, player: data.player, result: false });
+            Game.guessReply(false, data);
         }
     });
 
@@ -425,44 +524,24 @@ function SocketSetup() {
         var playerGuessPos = Game.playerPos[Game.players.indexOf(data.player)];
 
         if (data.result) {
-            DrawWord(data.guess, width - 100, playerGuessPos.y, DISPLAYGREEN);
+            DrawWord(data.guess, width - 100, playerGuessPos.y, DISPLAYGREEN, 150);
             DrawImage(1, width - 30, playerGuessPos.y, createVector(30,30));
         }
         else {
-            DrawWord(data.guess, width - 100, playerGuessPos.y, DISPLAYRED);
+            DrawWord(data.guess, width - 100, playerGuessPos.y, DISPLAYRED, 150);
             DrawImage(3, width - 30, playerGuessPos.y, createVector(30,30));
         }
     });
 
     socket.on('startGame', function(data) {
-        Game.gamebtn.hide();
-        if (data.currentPlayerId === socket.id) {
-            var wordIndex = Math.round(random(0, words.length - 1));
-            DrawWord(wordIndex);
-            Game.currentWordIndex = wordIndex;
-            Game.currentWord = words[wordIndex];
-            Game.gameInput.hide();
-        }
-        else {
-            Game.gameInput.show();
-        }
-        Game.gameActive = true;
-        Game.currentPlayerId = data.currentPlayerId;
-        Game.gameInput.value('');
-        Game.players = data.players;
-
-        //draw players tags
-        for (var i = Game.players.length - 1; i >= 0; --i) {
-            (function (i) {
-                var textCol = Game.players[i] === data.currentPlayerId ? DISPLAYBLUE : WHITE;
-                Game.playerPos[i] = createVector(PLAYERLISTPOS.x, PLAYERLISTPOS.y - (i * 50));
-                DrawWord('P' + (i+1) + ':', Game.playerPos[i].x, Game.playerPos[i].y, textCol, 40);
-            }).call(this, i);
-        }
+        Game.beginRound(data.currentPlayerId === socket.id, data)
     });
+
+    socket.on('hint', function(data) {
+        Game.currentWord = data;
+    })
 }
 
 //TODO: add button for requesting a new word in case its a bad word. Limit it to 2 new words or something
 //TODO: make the input button un-hide if a player fails to connect so they can retry connecting
 //TODO: add a timer for drawing
-//TODO: add that thing where it shows underscores for each letter and as time passes more letters get shown to help the players

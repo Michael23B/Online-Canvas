@@ -119,6 +119,11 @@ io.sockets.on('connection', function(socket) {
         socket.broadcast.emit('guessReply', data);
     });
 
+    //On 'guessReply' -> everyone but sender
+    socket.on('hint', function(data) {
+        socket.broadcast.emit('hint', data);
+    });
+
     //On 'nextPlayer' -> everyone
     socket.on('nextPlayer', function() {
         NextPlayer();
