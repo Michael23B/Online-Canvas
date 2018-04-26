@@ -211,6 +211,7 @@ function CheckInput() {
 
 function DoWork(key) {
     //image keys
+    if (key == null || key === " ") return;
     if (key >= 0 && key <= 9) {
         PlaceImageByIndex(key);
         return;
@@ -423,14 +424,15 @@ function SocketSetup() {
         Game.gameInput.value('');
         Game.players = data.players;
         //draw players tags
-        /*
-        for (var i = 0; i < Game.players.length; ++i) {
-            let ii = i;
-            DrawWord("P" + (ii+1).toString(), PLAYERLISTPOS.x - (ii * 25), PLAYERLISTPOS.y);
+
+        for (var i = Game.players.length - 1; i >= 0; --i) {
+            (function (i) {
+                var textCol = Game.players[i] === data.currentPlayerId ? BLUE : WHITE;
+                DrawWord("P" + (i+1).toString(), PLAYERLISTPOS.x, PLAYERLISTPOS.y - (i * 25), textCol);
+            }).call(this, i);
         }
-        */
     });
 }
 
-//TODO: send events to other clients for PlaceImageByIndex() and ClearCanvas()
+//TODO: add button for requesting a new word in case its a bad word. Limit it to 2 new words or something
 //TODO: make the input button un-hide if a player fails to connect so they can retry connecting

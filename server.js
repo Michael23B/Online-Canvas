@@ -38,6 +38,17 @@ io.sockets.on('connection', function(socket) {
     //On user disconnect, remove them from the client list
     socket.on('disconnect', function () {
         connectedUsers.splice(connectedUsers.indexOf(socket.id), 1);
+
+        //if the disconnected player is in the gamePlayers
+        var playerInGame = gamePlayers.indexOf(socket.id);
+        if (playerInGame !== -1) {
+            gamePlayers.splice(playerInGame, 1);
+
+            //if the current player (drawer) disconnected go to the next player
+            if (socket.id === playerId) {
+                NextPlayer();
+            }
+        }
     });
 
     //On 'mouse' message, broadcast data to everyone but the sender
@@ -78,17 +89,24 @@ io.sockets.on('connection', function(socket) {
 
     //Drawing game functions
 
+    //TODO: store words.txt on server instead of locally and send the word/index to the currently drawing player
+    //TODO: keep score for players
     //On 'startGame' -> everyone
     socket.on('startGame', function() {
-        gamePlayers = connectedUsers;
-        //playerId = gamePlayers.findIndex(x => x === socket.id);
+        var joiningGame = false;
+        if (gamePlayers.length > 0) joiningGame = true;
+
+        gamePlayers = connectedUsers.slice(0);
+        if (joiningGame) return; //if joining game, add them to the gamePlayers and let them wait until next round
+
         playerId = socket.id;
+        //playerId = gamePlayers.findIndex(x => x === socket.id);
         var data = {
             players: gamePlayers,
             currentPlayerId: playerId
         };
 
-        io.emit('startGame', data);
+        if (!joiningGame) io.emit('startGame', data);
     });
 
     //On 'guess' -> player who is currently drawing
@@ -103,18 +121,22 @@ io.sockets.on('connection', function(socket) {
 
     //On 'nextPlayer' -> everyone
     socket.on('nextPlayer', function() {
+        NextPlayer();
+    });
 
+    function NextPlayer() {
         var currPlayerIndex = gamePlayers.findIndex(x => x === socket.id);
         currPlayerIndex++;
         currPlayerIndex %= gamePlayers.length;
         playerId = gamePlayers[currPlayerIndex];
 
         var data = {
+            players: gamePlayers,
             currentPlayerId: playerId
         };
         io.emit('startGame', data);
-    });
-});
+    }
 
+});
 //TODO: change loading bool into an int that increases and decreases so if more than one client joins, the loading isn't stopped early.
 //TODO: add a timeout/disconnect event to the loading so that if someone drops while loading it doesn't break all clients
