@@ -152,7 +152,6 @@ dentist
 deodorant
 diagonal
 diamond ring
-dietitian
 dinosaur
 dish washer
 disney land
@@ -539,7 +538,6 @@ thread
 ticket
 tie
 time machine
-times square
 tissue box
 toast
 toaster

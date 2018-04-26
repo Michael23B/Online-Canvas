@@ -3,9 +3,9 @@ var socket = io;
 //SocketSetup();
 
 //keep track of our colour
-var r = 150, g = 150, b = 150, drawSize; //TODO: add an alpha for colour and velocity for increasing size/colour.
+var r = 150, g = 150, b = 150, drawSize; //TODO: add an alpha for colour
 //predefine constants
-var BLACK, WHITE, RED, GREEN, BLUE, DEFAULTSIZE, PLAYERLISTPOS;
+var BLACK, WHITE, RED, GREEN, BLUE, DISPLAYRED, DISPLAYGREEN, DISPLAYBLUE, DEFAULTSIZE, PLAYERLISTPOS;
 //image array
 var images = [];
 //word array
@@ -18,8 +18,11 @@ var keys = [];
 //TODO: send game to other players and hide/show guessing UI when appropriate
 var Game = {
     currentWordIndex: 0,
+    currentWord: "",
     currentPlayerId: 0,
     players: [],
+    //playerPos array maps the position of the player at the same index in Game.players
+    playerPos: [],
     gameActive: false,
     guess: function (word) {
         return words.findIndex(x => x === word) === this.currentWordIndex;
@@ -101,11 +104,14 @@ function setup() {
     //Setup constants
     BLACK = color(0, 0, 0);
     WHITE = color(255, 255, 255);
-    RED = color(255, 40, 40);
-    GREEN = color(40, 255, 40);
-    BLUE = color(40, 40, 255);
+    RED = color(255, 0, 0);
+    GREEN = color(0, 255, 0);
+    BLUE = color(0, 0, 255);
+    DISPLAYRED = color(255, 40, 40);
+    DISPLAYGREEN = color(40, 255, 40);
+    DISPLAYBLUE = color(40, 40, 255);
     DEFAULTSIZE = createVector(25,25);
-    PLAYERLISTPOS = createVector(width - 150, height - 100);
+    PLAYERLISTPOS = createVector(width - 200, height - 100);
 
     //Setup helpers
     drawSize = createVector(DEFAULTSIZE.x,DEFAULTSIZE.y);
@@ -121,9 +127,9 @@ function draw() {
       DrawDot();
       SendMouseInfo();
       //Brighten colour while painting
-      ApproachColour(WHITE, random(0, 2));
+      ApproachColour(WHITE, random(0, 0.5));
   }
-  else ApproachColour(BLACK, random(0, 2));
+  else ApproachColour(BLACK, random(0, 2), true);
 }
 
 //Canvas
@@ -146,16 +152,16 @@ function DrawImage(imageIndex, x = mouseX, y = mouseY, imageSize = drawSize) {
     image(images[imageIndex], x, y, imageSize.x * 2, imageSize.y * 2);
 }
 
-function DrawWord(wordOrIndex, posX = 0, posY = 0, colour = WHITE) {
+function DrawWord(wordOrIndex, posX = width / 2, posY = 5, colour = WHITE, rectSizeX = 150) {
     if (typeof wordOrIndex === "number") {
         var word = words[wordOrIndex];
-        DrawRect((width / 2) - 75, 0, color(20,20,20), createVector(150,25));
+        DrawRect(posX - rectSizeX / 2, posY - 5, color(20,20,20), createVector(rectSizeX,25));
         fill(WHITE);
         textAlign(CENTER);
-        text(word, width / 2, 5);
+        text(word, posX, 5);
     }
     else {
-        DrawRect(posX - 75, posY, color(20,20,20), createVector(150,25));
+        DrawRect(posX - rectSizeX / 2, posY, color(20,20,20), createVector(rectSizeX,25));
         fill(colour);
         textAlign(CENTER);
         text(wordOrIndex, posX, posY + 5);
@@ -165,7 +171,7 @@ function DrawWord(wordOrIndex, posX = 0, posY = 0, colour = WHITE) {
 //UI
 function DrawPalette() {
     //Background for text display
-    DrawRect(width - 110, 0, color(21,21,21), createVector(110, 55));
+    DrawRect(width - 110, 0, color(20,20,20), createVector(110, 110));
 
     //Draw current size info
     noStroke();
@@ -176,27 +182,39 @@ function DrawPalette() {
     text(drawSizeDisplay, width - 5, 10);
 
     //Draw current colour info
-    fill(RED);
-    text(Math.round(r), width - 5, 35);
-    fill(GREEN);
+    fill(DISPLAYRED);
+    text(Math.round(r), width - 70, 35);
+    fill(DISPLAYGREEN);
     text(Math.round(g), width - 37.5, 35);
-    fill(BLUE);
-    text(Math.round(b), width - 70, 35);
+    fill(DISPLAYBLUE);
+    text(Math.round(b), width - 5, 35);
 
     //Draw current colour
-    DrawDot(20,height - 20, color(r,g,b), createVector(30,30));
+    DrawDot(width - 45, 80, color(r,g,b), createVector(30,30));
+
+    //Draw current game word
+    if (Game.currentWord) DrawWord(Game.currentWord);
 }
 
 //Controls
 //Approach colour by amount each frame
-function ApproachColour(colour, amount = random(0, 4)) {
+function ApproachColour(colour, amount = random(0, 4), darken = false) {
     var newR = colour._array[0] * 255;
     var newG = colour._array[1] * 255;
     var newB = colour._array[2] * 255;
 
-    r < newR ? r+= amount : r-= amount;
-    g < newG ? g+= amount : g-= amount;
-    b < newB ? b+= amount : b-= amount;
+    if (darken) {
+        //Approach a specific colour
+        r < newR ? r+= amount : r-= amount;
+        g < newG ? g+= amount : g-= amount;
+        b < newB ? b+= amount : b-= amount;
+    }
+    else {
+        //Increase colour only
+        if (r < newR) r+= amount;
+        if (g < newG) g+= amount;
+        if (b < newB) b+= amount;
+    }
 
     r = constrain(r, 0, 255);
     g = constrain(g, 0, 255);
@@ -231,14 +249,14 @@ function DoWork(key) {
             ControlSize();
             break;
         case 's':
-            ControlSize(-0.75);
+            ControlSize(-0.5);
             break;
         default:
             break;
     }
 }
 
-function ControlSize(amountX = 0.75, amountY = amountX) {
+function ControlSize(amountX = 0.5, amountY = amountX) {
     drawSize.x += amountX;
     drawSize.y += amountY;
 
@@ -329,7 +347,7 @@ function SocketSetup() {
     socket.on('mouse', function(data) {
         DrawDot(data.x, data.y, color(data.r, data.g, data.b), createVector(data.sizeX,data.sizeY));
     });
-    //TODO: replace this function its way too slow
+
     socket.on('requestCanvas', function(data) {
         console.log("received a request from " + data.from);
 
@@ -337,6 +355,7 @@ function SocketSetup() {
         SendCanvas(data.from);
     });
 
+    //TODO: replace this function its way too slow
     socket.on('sendCanvas', function(data) {
         loadPixels();
         //this is omega slow
@@ -379,32 +398,39 @@ function SocketSetup() {
         //if the game hasn't started or you aren't the current player, return
         if (Game.currentPlayerId !== socket.id || Game.gameActive === false) return;
 
-        if (Game.guess(data.guess)) {
-            DrawWord(data.guess, width - 100, height - 100, GREEN);
-            DrawImage(1, width - 30, height - 100, createVector(30,30));
+        var playerGuessPos = Game.playerPos[Game.players.indexOf(data.player)];
 
-            //TODO: give the player points and move to the next player
+        if (Game.guess(data.guess)) {
+            DrawWord(data.guess, width - 100, playerGuessPos.y, DISPLAYGREEN);
+            DrawImage(1, width - 30, playerGuessPos.y, createVector(30,30));
+
+            //TODO: give the player points
+            //TODO: should really put this into a Game function
             Game.currentPlayerId = -1; //This round if finished, don't accept any more guesses
+            Game.currentWordIndex = null;
+            Game.currentWord = "";
+            DrawWord(" ");
             socket.emit('guessReply', { guess: data.guess, player: data.player, result: true });
             socket.emit('nextPlayer');
         }
         else {
-            DrawWord(data.guess, width - 100, height - 100, RED);
-            DrawImage(1, width - 30, height - 100, createVector(30,30));
+            DrawWord(data.guess, width - 100, playerGuessPos.y, DISPLAYRED);
+            DrawImage(3, width - 30, playerGuessPos.y, createVector(30,30));
 
             socket.emit('guessReply', { guess: data.guess, player: data.player, result: false });
         }
     });
 
     socket.on('guessReply', function(data) {
+        var playerGuessPos = Game.playerPos[Game.players.indexOf(data.player)];
+
         if (data.result) {
-            DrawWord(data.guess, width - 100, height - 100, GREEN);
-            DrawImage(1, width - 30, height - 100, createVector(30,30));
-            //TODO: give the player points and move to the next player
+            DrawWord(data.guess, width - 100, playerGuessPos.y, DISPLAYGREEN);
+            DrawImage(1, width - 30, playerGuessPos.y, createVector(30,30));
         }
         else {
-            DrawWord(data.guess, width - 100, height - 100, RED);
-            DrawImage(3, width - 30, height - 100, createVector(30,30));
+            DrawWord(data.guess, width - 100, playerGuessPos.y, DISPLAYRED);
+            DrawImage(3, width - 30, playerGuessPos.y, createVector(30,30));
         }
     });
 
@@ -414,6 +440,7 @@ function SocketSetup() {
             var wordIndex = Math.round(random(0, words.length - 1));
             DrawWord(wordIndex);
             Game.currentWordIndex = wordIndex;
+            Game.currentWord = words[wordIndex];
             Game.gameInput.hide();
         }
         else {
@@ -423,12 +450,13 @@ function SocketSetup() {
         Game.currentPlayerId = data.currentPlayerId;
         Game.gameInput.value('');
         Game.players = data.players;
-        //draw players tags
 
+        //draw players tags
         for (var i = Game.players.length - 1; i >= 0; --i) {
             (function (i) {
-                var textCol = Game.players[i] === data.currentPlayerId ? BLUE : WHITE;
-                DrawWord("P" + (i+1).toString(), PLAYERLISTPOS.x, PLAYERLISTPOS.y - (i * 25), textCol);
+                var textCol = Game.players[i] === data.currentPlayerId ? DISPLAYBLUE : WHITE;
+                Game.playerPos[i] = createVector(PLAYERLISTPOS.x, PLAYERLISTPOS.y - (i * 50));
+                DrawWord('P' + (i+1) + ':', Game.playerPos[i].x, Game.playerPos[i].y, textCol, 40);
             }).call(this, i);
         }
     });
@@ -436,3 +464,5 @@ function SocketSetup() {
 
 //TODO: add button for requesting a new word in case its a bad word. Limit it to 2 new words or something
 //TODO: make the input button un-hide if a player fails to connect so they can retry connecting
+//TODO: add a timer for drawing
+//TODO: add that thing where it shows underscores for each letter and as time passes more letters get shown to help the players
