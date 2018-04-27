@@ -20,11 +20,15 @@ var Game = {
     currentWordIndex: 0,
     currentWord: "",
     hint: "",
+    newWordCounter: 0,
     currentPlayerId: 0,
     players: [],
     //playerPos array maps the position of the player at the same index in Game.players
     playerPos: [],
     gameActive: false,
+    startTime: 0,
+    roundLength: 120,
+    timeLeft: 0,
     //Functions
     guess: function (word) {
         return words.findIndex(x => x === word) === this.currentWordIndex;
@@ -32,13 +36,8 @@ var Game = {
     guessReply: function(result, data) {
         if (result) {
             //TODO: give the player points
-            Game.currentPlayerId = null; //This round if finished, don't accept any more guesses
-            Game.currentWordIndex = null;
-            Game.currentWord = "";
-            Game.hint = "";
-            DrawWord(" ");  //Clear the previous word
             socket.emit('guessReply', { guess: data.guess, player: data.player, result: result });
-            socket.emit('nextPlayer');
+            Game.endRound();
         }
         else {
             socket.emit('guessReply', { guess: data.guess, player: data.player, result: result });
@@ -46,30 +45,26 @@ var Game = {
     },
     beginRound: function (drawer, data) {
         if (drawer) {
-            //Get a random word and draw it
-            var wordIndex = Math.round(random(0, words.length - 1));
-            DrawWord(wordIndex);
-
-            //Setup game variables (drawer only)
-            Game.currentWordIndex = wordIndex;
-            Game.currentWord = words[wordIndex];
             Game.gameInput.hide();
-            Game.getHint();
-
-            //Send the other players a hint
-            socket.emit('hint', Game.hint);
+            Game.newWordCounter = 2;
+            Game.newWordbtn.html("New word (" + Game.newWordCounter + ')');
+            Game.newWord();
         }
         else {
             Game.gameInput.show();
             Game.currentWord = "";
+            Game.newWordbtn.hide();
         }
 
         //Setup game variables (all players)
+        Game.startTime = millis();
+        Game.timeLeft = Game.roundLength;
         Game.gamebtn.hide();
         Game.gameActive = true;
         Game.currentPlayerId = data.currentPlayerId;
         Game.gameInput.value('');
         Game.players = data.players;
+        prevTime = -1;
 
         //Draw players tags
         for (var i = 0; i < Game.players.length; ++i) {
@@ -84,6 +79,15 @@ var Game = {
                 DrawWord('P' + (i+1) + ':', Game.playerPos[i].x, Game.playerPos[i].y, textCol, 40);
             }).call(this, i);
         }
+    },
+    endRound: function() {
+        Game.currentPlayerId = null; //This round if finished, don't accept any more guesses
+        Game.currentWordIndex = null;
+        Game.currentWord = "";
+        Game.hint = "";
+        Game.newWordbtn.hide();
+        DrawWord(" ");  //Clear the previous word
+        socket.emit('nextPlayer');
     },
     getHint: function() {
         Game.hint = "";
@@ -111,12 +115,28 @@ var Game = {
             Game.hint = newHint;
         }
     },
+    newWord: function() {
+        var wordIndex = Math.round(random(0, words.length - 1));
+        DrawWord(wordIndex);
+
+        //Setup game variables (drawer only)
+        Game.currentWordIndex = wordIndex;
+        Game.currentWord = words[wordIndex];
+        Game.getHint();
+
+        if (Game.newWordCounter > 0) Game.newWordbtn.show();
+        else Game.newWordbtn.hide();
+
+        //Send the other players a hint
+        socket.emit('hint', Game.hint);
+    },
     //UI
     gamebtn: undefined,
+    newWordbtn: undefined,
     gameInput: undefined
 };
-//timer
-var timer = 1, countDown = 0;
+//compare game time each second
+var prevTime = 0;
 
 function preload() {
     var imgCount = 10;  //number of images in 'img/' to load
@@ -131,6 +151,7 @@ function preload() {
 function setup() {
   createCanvas(1200, 800);
   background(20);
+
   //Setup ip input
     input = createInput(getURL());
     input.position(5, 30);
@@ -170,6 +191,19 @@ function setup() {
         Game.gamebtn.hide();
         Game.gameInput.hide();
     });
+
+    //Setup new word button
+    Game.newWordbtn = createButton('New word (2)');
+    Game.newWordbtn.position(width - 110, height - 60);
+    Game.newWordbtn.size(110);
+    Game.newWordbtn.mousePressed(function() {
+        if (Game.newWordCounter > 0) {
+            Game.newWordCounter--;
+            Game.newWord();
+            Game.newWordbtn.html("New word (" + Game.newWordCounter + ')');
+        }
+    });
+    Game.newWordbtn.hide();
 
     //Setup game input
     Game.gameInput = createInput();
@@ -257,7 +291,7 @@ function DrawWord(wordOrIndex, posX = width / 2, posY = 5, colour = WHITE, rectS
 //UI
 function DrawPalette() {
     //Background for text display
-    DrawRect(width - 110, 0, color(20,20,20), createVector(110, 110));
+    DrawRect(width - 110, 0, color(20,20,20), createVector(110, 140));
 
     //Draw current size info
     noStroke();
@@ -279,7 +313,10 @@ function DrawPalette() {
     DrawDot(width - 45, 80, color(r,g,b), createVector(30,30));
 
     //Draw current game word
-    if (Game.currentWord) DrawWord(Game.currentWord);
+    if (Game.gameActive) {
+        if (Game.currentWord) DrawWord(Game.currentWord);
+        if (Game.timeLeft >= 0) DrawWord(Game.timeLeft.toString(), width - 50, 110, WHITE, 50);
+    }
 }
 
 //Controls
@@ -308,19 +345,37 @@ function ApproachColour(colour, amount = random(0, 4), darken = false) {
 }
 
 function CheckTimer() {
-    if (countDown !== 0) {
-        if (timer % 60 === 0) {
-            timer = 1;
-            countDown--;
-            if (countDown === 0) {
-                if (Game.currentPlayerId !== socket.id) return;
-                Game.improveHint();
-                socket.emit('hint', Game.hint);
-                console.log(Game.hint);
-            }
+    if (Game.timeLeft > 0) {
+        var timePassed = Math.round((millis() - Game.startTime) / 1000);
+        Game.timeLeft = Game.roundLength - timePassed;
+        if (Game.currentPlayerId !== socket.id) return;
+        //Game over
+        if (Game.timeLeft <= 0) {
+            Game.endRound();
+            return;
         }
-        else {
-            timer++;
+
+        if (Game.timeLeft !== prevTime) {
+            //Provide hints based on word length
+            if (Game.currentWord.length > 10) {
+                if (Game.timeLeft === 100 || Game.timeLeft === 75 || Game.timeLeft === 50 || Game.timeLeft === 25) {
+                    Game.improveHint();
+                    socket.emit('hint', Game.hint);
+                }
+            }
+            else if (Game.currentWord.length > 6) {
+                if (Game.timeLeft === 90 || Game.timeLeft === 60 || Game.timeLeft === 30) {
+                    Game.improveHint();
+                    socket.emit('hint', Game.hint);
+                }
+            }
+            else if (Game.currentWord.length > 2) {
+                if (Game.timeLeft === 75 || Game.timeLeft === 15) {
+                    Game.improveHint();
+                    socket.emit('hint', Game.hint);
+                }
+            }
+            prevTime = Game.timeLeft;
         }
     }
 }
