@@ -10,6 +10,8 @@ var BLACK, WHITE, RED, GREEN, BLUE, DISPLAYRED, DISPLAYGREEN, DISPLAYBLUE, DEFAU
 var images = [];
 //word array
 var words = [];
+//names array
+var names = [];
 //is a client joining?
 var loading = true;
 //currently pressed keys
@@ -29,6 +31,7 @@ var Game = {
     startTime: 0,
     roundLength: 120,
     timeLeft: 0,
+    hintCount: 0,
     //Functions
     guess: function (word) {
         return words.findIndex(x => x === word) === this.currentWordIndex;
@@ -64,19 +67,23 @@ var Game = {
         Game.currentPlayerId = data.currentPlayerId;
         Game.gameInput.value('');
         Game.players = data.players;
-        prevTime = -1;
+        Game.hintCount = 0;
 
         //Draw players tags
-        for (var i = 0; i < Game.players.length; ++i) {
+        for (let i = 0; i < Game.players.length; ++i) {
             (function (i) {
                 //Current drawer name is blue
-                var textCol = Game.players[i] === data.currentPlayerId ? DISPLAYBLUE : WHITE;
+                let textCol = Game.players[i].id === data.currentPlayerId ? DISPLAYBLUE : WHITE;
                 //Order positions with player 1 at the top
-                var playerPosOrder = (Game.players.length - 1) - i;
+                let playerPosOrder = (Game.players.length - 1) - i;
                 //Set player positions (used for drawing their guesses and names)
                 Game.playerPos[i] = createVector(PLAYERLISTPOS.x, PLAYERLISTPOS.y - (playerPosOrder * 50));
-
-                DrawWord('P' + (i+1) + ':', Game.playerPos[i].x, Game.playerPos[i].y, textCol, 40);
+                DrawWord(Game.players[i].name + '->',
+                    Game.playerPos[i].x,
+                    Game.playerPos[i].y,
+                    textCol,
+                    75,
+                    25);
             }).call(this, i);
         }
     },
@@ -92,36 +99,40 @@ var Game = {
     getHint: function() {
         Game.hint = "";
 
-        for (var i = 0; i < Game.currentWord.length; ++i) {
+        for (let i = 0; i < Game.currentWord.length; ++i) {
             Game.hint += "_ ";
         }
     },
-    improveHint: function() {
+    improveHint: function(amount = 1) {
         //Hint is "_ " repeated so every second letter (' ') we don't want to replace
-        var charIndex;
+        let charIndex;
 
-        if (Game.hint.search("_") !== -1) {
-            //We know we have an '_' so loop until we find one to replace
-            do {
-                charIndex = Math.round(random(0, Game.currentWord.length - 1));
+        //for amount of chars, replace an underscore with a letter from the word
+        for (let i = 0; i < amount; ++i) {
+            if (Game.hint.search("_") !== -1) {
+                //We know we have an '_' so loop until we find one to replace
+                do {
+                    charIndex = Math.round(random(0, Game.currentWord.length - 1));
+                }
+                while(Game.hint[charIndex * 2] !== "_");
+
+                //Replace the _ with a character from the word
+                let newHint = Game.hint.substring(0, charIndex * 2)
+                    + Game.currentWord[charIndex]
+                    + Game.hint.substring((charIndex * 2) + 1, Game.hint.length);
+
+                Game.hint = newHint;
             }
-            while(Game.hint[charIndex * 2] !== "_");
-
-            //Replace the _ with a character from the word
-            var newHint = Game.hint.substring(0, charIndex * 2)
-                + Game.currentWord[charIndex]
-                + Game.hint.substring((charIndex * 2) + 1, Game.hint.length);
-
-            Game.hint = newHint;
         }
     },
     newWord: function() {
-        var wordIndex = Math.round(random(0, words.length - 1));
+        let wordIndex = Math.round(random(0, words.length - 1));
         DrawWord(wordIndex);
 
         //Setup game variables (drawer only)
         Game.currentWordIndex = wordIndex;
         Game.currentWord = words[wordIndex];
+        Game.hintCount = 0;
         Game.getHint();
 
         if (Game.newWordCounter > 0) Game.newWordbtn.show();
@@ -135,46 +146,80 @@ var Game = {
     newWordbtn: undefined,
     gameInput: undefined
 };
-//compare game time each second
-var prevTime = 0;
 
 function preload() {
-    var imgCount = 10;  //number of images in 'img/' to load
-    for (var i = 0; i < imgCount; ++i) {
+    let imgCount = 10;  //number of images in 'img/' to load
+    for (let i = 0; i < imgCount; ++i) {
         images[i] = loadImage('/img/' + i + '.png');
     }
 
 //TODO: Use drop to let clients upload custom images. https://p5js.org/reference/#/p5.Element/drop
-    words = loadStrings('words.txt');
+    words = loadStrings('data/words.txt');
+    names = loadStrings('data/names.txt');
 }
 
 function setup() {
-  createCanvas(1200, 800);
+  createCanvas(1280, 768);
   background(20);
 
   //Setup ip input
-    input = createInput(getURL());
-    input.position(5, 30);
-    input.value();
-    input.size(175);
+    let ipInput = createInput(getURL());
+    ipInput.position(5, 30);
+    ipInput.value();
+    ipInput.size(175);
 
     textSize(18);
     fill(230, 230, 230);
-    text("Enter host IP address", input.x, input.y - 5);
+    text("Enter host IP address", ipInput.x, ipInput.y - 5);
 
-    button = createButton('Connect to port');
-    button.position(input.x + input.width, input.y);
-    button.mousePressed(function() {
-        socket = io.connect(input.value().toString());
+    let ipbtn = createButton('Connect to port');
+    ipbtn.position(ipInput.x + ipInput.width + 5, ipInput.y);
+    ipbtn.mousePressed(function() {
+        socket = io.connect(ipInput.value().toString());
 
-        input.hide();
-        button.hide();
+        ipInput.hide();
+        ipbtn.hide();
 
         SocketSetup();
     });
 
+
+    //Setup name input
+    let nameInput = createInput("👌");
+    nameInput.position(5, 130);
+    nameInput.value();
+    nameInput.size(20,20);
+    nameInput.style('font-size', '20px');
+    nameInput.attribute('disabled', '');
+
+    textSize(18);
+    fill(230, 230, 230);
+    text("Slide your name below", nameInput.x, nameInput.y - 6);
+
+    let namebtn = createButton('👍');
+    namebtn.position(nameInput.x + nameInput.width + 5, nameInput.y - 2);
+    namebtn.style('font-size', '18px');
+    namebtn.size(50, 30);
+    namebtn.mousePressed(function() {
+        socket.emit('name', nameInput.value());
+
+        nameInput.hide();
+        namebtn.hide();
+        nameSlider.hide();
+    });
+
+    let nameSlider = createSlider(0, 37, 26);
+    nameSlider.position(nameInput.x - 10, nameInput.y + 30);
+    nameSlider.style('width', '175px');
+
+    let inputElem = new p5.Element(nameSlider.elt);
+
+    inputElem.elt.oninput = function() {
+        nameInput.value(names[nameSlider.value()]);
+    };
+
     //Setup clear button
-    clearbtn = createButton('!!!');
+    let clearbtn = createButton('!!!');
     clearbtn.position(width - 80, height - 30);
     clearbtn.size(75);
     clearbtn.mousePressed(function() {
@@ -194,7 +239,7 @@ function setup() {
 
     //Setup new word button
     Game.newWordbtn = createButton('New word (2)');
-    Game.newWordbtn.position(width - 110, height - 60);
+    Game.newWordbtn.position(width - 115, height - 60);
     Game.newWordbtn.size(110);
     Game.newWordbtn.mousePressed(function() {
         if (Game.newWordCounter > 0) {
@@ -210,7 +255,7 @@ function setup() {
     Game.gameInput.position(width - 150, height - 60);
     Game.gameInput.size(130);
     Game.gameInput.input(function() {
-        var guess = Game.gameInput.value();
+        let guess = Game.gameInput.value();
         if (guess.length > 20) return;  //stop user from typing long words
         SendGuess(guess);
     });
@@ -255,7 +300,6 @@ function draw() {
 //Canvas
 //Drawing
 function DrawDot(x = mouseX, y = mouseY, dotColour = color(r,g,b), dotSize = drawSize) {
-    //TODO: Separate draw dot from manual input and draw dot for UI, then add all manual to an array to send to other clients when they join
     noStroke();
     fill(dotColour);
     ellipse(x, y , dotSize.x, dotSize.y);
@@ -272,7 +316,8 @@ function DrawImage(imageIndex, x = mouseX, y = mouseY, imageSize = drawSize) {
     image(images[imageIndex], x, y, imageSize.x * 2, imageSize.y * 2);
 }
 
-function DrawWord(wordOrIndex, posX = width / 2, posY = 5, colour = WHITE, rectSizeX = 225) {
+function DrawWord(wordOrIndex, posX = width / 2, posY = 5, colour = WHITE, rectSizeX = 225, fontSize = 18) {
+    textSize(fontSize);
     if (typeof wordOrIndex === "number") {
         var word = words[wordOrIndex];
         DrawRect(posX - rectSizeX / 2, posY + 5, color(20,20,20), createVector(rectSizeX,30));
@@ -348,36 +393,66 @@ function CheckTimer() {
     if (Game.timeLeft > 0) {
         var timePassed = Math.round((millis() - Game.startTime) / 1000);
         Game.timeLeft = Game.roundLength - timePassed;
+
         if (Game.currentPlayerId !== socket.id) return;
+
         //Game over
         if (Game.timeLeft <= 0) {
             Game.endRound();
             return;
         }
 
-        if (Game.timeLeft !== prevTime) {
-            //Provide hints based on word length
-            if (Game.currentWord.length > 10) {
-                if (Game.timeLeft === 100 || Game.timeLeft === 75 || Game.timeLeft === 50 || Game.timeLeft === 25) {
-                    Game.improveHint();
-                    socket.emit('hint', Game.hint);
+        //When the tab is not active, the draw loop doesn't happen (at least consistently)
+        //so we can't rely on this timer being perfectly accurate
+
+        //Provide hints based on word length
+        //Since this is a monstrosity switch if thing basically what it does is
+        //how many hints have you given? -> based on that if the timer is past a certain threshold and
+        //you have a certain word length send a hint and increment hintCount
+        switch (Game.hintCount) {
+            case 0:
+                if (Game.timeLeft <= 100 && Game.currentWord.length > 9) {
+                    ImproveAndSendHint();
                 }
-            }
-            else if (Game.currentWord.length > 6) {
-                if (Game.timeLeft === 90 || Game.timeLeft === 60 || Game.timeLeft === 30) {
-                    Game.improveHint();
-                    socket.emit('hint', Game.hint);
+                else if (Game.timeLeft <= 90  && Game.currentWord.length > 5) {
+                    ImproveAndSendHint();
                 }
-            }
-            else if (Game.currentWord.length > 2) {
-                if (Game.timeLeft === 75 || Game.timeLeft === 15) {
-                    Game.improveHint();
-                    socket.emit('hint', Game.hint);
+                else if (Game.timeLeft <= 60  && Game.currentWord.length > 2) {
+                    ImproveAndSendHint();
                 }
-            }
-            prevTime = Game.timeLeft;
+                break;
+            case 1:
+                if (Game.timeLeft <= 75 && Game.currentWord.length > 9) {
+                    ImproveAndSendHint(2);
+                }
+                else if (Game.timeLeft <= 60  && Game.currentWord.length > 5) {
+                    ImproveAndSendHint();
+                }
+                else if (Game.timeLeft <= 15  && Game.currentWord.length > 2) {
+                    ImproveAndSendHint();
+                }
+                break;
+            case 2:
+                if (Game.timeLeft <= 50 && Game.currentWord.length > 9) {
+                    ImproveAndSendHint();
+                }
+                else if (Game.timeLeft <= 30  && Game.currentWord.length > 5) {
+                    ImproveAndSendHint();
+                }
+                break;
+            case 3:
+                if (Game.timeLeft <= 25 && Game.currentWord.length > 9) {
+                    ImproveAndSendHint(2);
+                }
+                break;
         }
     }
+}
+
+function ImproveAndSendHint(amount = 1) {
+    Game.improveHint(amount);
+    socket.emit('hint', Game.hint);
+    Game.hintCount++;
 }
 
 function CheckInput() {
@@ -446,10 +521,7 @@ function ClearCanvas() {
 
 //Disable mobile default controls
 function touchStarted() {
-}
 
-function touchMoved() {
-    return false;
 }
 
 //Networking
@@ -559,7 +631,7 @@ function SocketSetup() {
         //if the game hasn't started or you aren't the current player, return
         if (Game.currentPlayerId !== socket.id || Game.gameActive === false) return;
 
-        var playerGuessPos = Game.playerPos[Game.players.indexOf(data.player)];
+        var playerGuessPos = Game.playerPos[Game.players.findIndex(x => x.id === data.player)];
 
         if (Game.guess(data.guess)) {
             DrawWord(data.guess, width - 100, playerGuessPos.y, DISPLAYGREEN, 150);
@@ -576,7 +648,7 @@ function SocketSetup() {
     });
 
     socket.on('guessReply', function(data) {
-        var playerGuessPos = Game.playerPos[Game.players.indexOf(data.player)];
+        var playerGuessPos = Game.playerPos[Game.players.findIndex(x => x.id === data.player)];
 
         if (data.result) {
             DrawWord(data.guess, width - 100, playerGuessPos.y, DISPLAYGREEN, 150);
@@ -597,6 +669,5 @@ function SocketSetup() {
     })
 }
 
-//TODO: add button for requesting a new word in case its a bad word. Limit it to 2 new words or something
-//TODO: make the input button un-hide if a player fails to connect so they can retry connecting
-//TODO: add a timer for drawing
+//TODO: Add input to an array and send it to joining players. Clear this array when clearing canvas
+//need bigger text box for player names add way for players to select names

@@ -16,7 +16,7 @@ console.log("Listening on port 3000. Please port forward if you wish to connect 
 
 io.sockets.on('connection', function(socket) {
     //On connect, add the current connection to client list
-    connectedUsers.push(socket.id);
+    connectedUsers.push({id: socket.id, name: "👌"});
 
     //Log user array and connections length
     console.log("New user connected!\nUsers connected: " + Object.keys(io.sockets.connected).length);
@@ -27,7 +27,7 @@ io.sockets.on('connection', function(socket) {
     //Request canvas for the new client
     //TEMPORARY DISABLE BECAUSE ITS MEGA SLOW
     if (connectedUsers.length > 10) {
-        socket.to(connectedUsers[0]).emit('requestCanvas', { from: socket.id });
+        socket.to(connectedUsers[0].id).emit('requestCanvas', { from: socket.id });
         console.log("Request from " + socket.id + ". To " + connectedUsers[0]);
         io.emit('loading', true);
     }
@@ -37,10 +37,10 @@ io.sockets.on('connection', function(socket) {
 
     //On user disconnect, remove them from the client list
     socket.on('disconnect', function () {
-        connectedUsers.splice(connectedUsers.indexOf(socket.id), 1);
+        connectedUsers.splice(connectedUsers.findIndex(x => x.id === socket.id), 1);
 
         //if the disconnected player is in the gamePlayers
-        var playerInGame = gamePlayers.indexOf(socket.id);
+        let playerInGame = gamePlayers.findIndex(x => x.id === socket.id);
         if (playerInGame !== -1) {
             gamePlayers.splice(playerInGame, 1);
 
@@ -49,6 +49,14 @@ io.sockets.on('connection', function(socket) {
                 NextPlayer();
             }
         }
+    });
+
+    //On 'name', change players name
+    socket.on('name', function(data) {
+        connectedUsers[connectedUsers.findIndex(x => x.id === socket.id)].name = data;
+
+        let userInGameIndex = gamePlayers.findIndex(x => x.id === socket.id);
+        if (userInGameIndex !== -1) gamePlayers[userInGameIndex].name = data;
     });
 
     //On 'mouse' message, broadcast data to everyone but the sender
@@ -75,7 +83,7 @@ io.sockets.on('connection', function(socket) {
     socket.on('requestCanvas', function(data) {
         console.log("Got a request over here");
         if (connectedUsers.length > 1) {
-            socket.to(connectedUsers[0]).emit('requestCanvas', { from: data.from });
+            socket.to(connectedUsers[0].id).emit('requestCanvas', { from: data.from });
             console.log("Canvas request from " + data.from + ". To " + connectedUsers[0]);
         }
         else {
@@ -93,7 +101,7 @@ io.sockets.on('connection', function(socket) {
     //TODO: keep score for players
     //On 'startGame' -> everyone
     socket.on('startGame', function() {
-        var joiningGame = false;
+        let joiningGame = false;
         if (gamePlayers.length > 0) joiningGame = true;
 
         gamePlayers = connectedUsers.slice(0);
@@ -101,7 +109,7 @@ io.sockets.on('connection', function(socket) {
 
         playerId = socket.id;
         //playerId = gamePlayers.findIndex(x => x === socket.id);
-        var data = {
+        let data = {
             players: gamePlayers,
             currentPlayerId: playerId
         };
@@ -111,7 +119,7 @@ io.sockets.on('connection', function(socket) {
 
     //On 'guess' -> player who is currently drawing
     socket.on('guess', function(data) {
-        socket.to(gamePlayers[gamePlayers.findIndex(x => x === playerId)]).emit('guess', data);
+        socket.to(gamePlayers[gamePlayers.findIndex(x => x.id === playerId)].id).emit('guess', data);
     });
 
     //On 'guessReply' -> everyone but sender
@@ -130,12 +138,13 @@ io.sockets.on('connection', function(socket) {
     });
 
     function NextPlayer() {
-        var currPlayerIndex = gamePlayers.findIndex(x => x === socket.id);
+        if (gamePlayers.length === 0) return;
+        let currPlayerIndex = gamePlayers.findIndex(x => x.id === socket.id);
         currPlayerIndex++;
         currPlayerIndex %= gamePlayers.length;
-        playerId = gamePlayers[currPlayerIndex];
+        playerId = gamePlayers[currPlayerIndex].id;
 
-        var data = {
+        let data = {
             players: gamePlayers,
             currentPlayerId: playerId
         };
@@ -144,4 +153,3 @@ io.sockets.on('connection', function(socket) {
 
 });
 //TODO: change loading bool into an int that increases and decreases so if more than one client joins, the loading isn't stopped early.
-//TODO: add a timeout/disconnect event to the loading so that if someone drops while loading it doesn't break all clients
