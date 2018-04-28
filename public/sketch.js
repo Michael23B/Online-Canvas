@@ -38,8 +38,8 @@ var Game = {
     },
     guessReply: function(result, data) {
         if (result) {
-            //TODO: give the player points
-            socket.emit('guessReply', { guess: data.guess, player: data.player, result: result });
+            let score = Game.calcScore();
+            socket.emit('guessReply', { guess: data.guess, player: data.player, result: result, score: score });
             Game.endRound();
         }
         else {
@@ -78,11 +78,12 @@ var Game = {
                 let playerPosOrder = (Game.players.length - 1) - i;
                 //Set player positions (used for drawing their guesses and names)
                 Game.playerPos[i] = createVector(PLAYERLISTPOS.x, PLAYERLISTPOS.y - (playerPosOrder * 50));
-                DrawWord(Game.players[i].name + '->',
+                //TODO: score after name
+                DrawWord(Game.players[i].name + ' (' + Game.players[i].score + ')',
                     Game.playerPos[i].x,
                     Game.playerPos[i].y,
                     textCol,
-                    75,
+                    createVector(82.5, 35),
                     25);
             }).call(this, i);
         }
@@ -140,6 +141,23 @@ var Game = {
 
         //Send the other players a hint
         socket.emit('hint', Game.hint);
+    },
+    calcScore: function() {
+        let score = 0;
+
+        //Score gained based on time left
+        if (Game.timeLeft > 90) score += 3;
+        else if (Game.timeLeft > 60) score += 2;
+        else score += 1;
+        //Score gained based on word length
+        if (Game.currentWord.length > 9) score += 5;
+        else if (Game.currentWord.length > 6) score += 3;
+        else if (Game.currentWord.length > 3) score += 1;
+        else score -= 1;
+        //Minimum 1 score
+        if (score < 1) score = 1;
+
+        return score;
     },
     //UI
     gamebtn: undefined,
@@ -208,7 +226,7 @@ function setup() {
         nameSlider.hide();
     });
 
-    let nameSlider = createSlider(0, 37, 26);
+    let nameSlider = createSlider(0, 59, 26);
     nameSlider.position(nameInput.x - 10, nameInput.y + 30);
     nameSlider.style('width', '175px');
 
@@ -275,7 +293,7 @@ function setup() {
     DISPLAYGREEN = color(40, 255, 40);
     DISPLAYBLUE = color(40, 40, 255);
     DEFAULTSIZE = createVector(25,25);
-    PLAYERLISTPOS = createVector(width - 200, height - 100);
+    PLAYERLISTPOS = createVector(width - 250, height - 100);
 
     //Setup helpers
     drawSize = createVector(DEFAULTSIZE.x,DEFAULTSIZE.y);
@@ -316,17 +334,17 @@ function DrawImage(imageIndex, x = mouseX, y = mouseY, imageSize = drawSize) {
     image(images[imageIndex], x, y, imageSize.x * 2, imageSize.y * 2);
 }
 
-function DrawWord(wordOrIndex, posX = width / 2, posY = 5, colour = WHITE, rectSizeX = 225, fontSize = 18) {
+function DrawWord(wordOrIndex, posX = width / 2, posY = 5, colour = WHITE, rectSize = createVector(225, 30), fontSize = 18) {
     textSize(fontSize);
     if (typeof wordOrIndex === "number") {
         var word = words[wordOrIndex];
-        DrawRect(posX - rectSizeX / 2, posY + 5, color(20,20,20), createVector(rectSizeX,30));
+        DrawRect(posX - rectSize.x / 2, posY + 5, color(20,20,20), createVector(rectSize.x, rectSize.y));
         fill(WHITE);
         textAlign(CENTER);
         text(word, posX, 5);
     }
     else {
-        DrawRect(posX - rectSizeX / 2, posY, color(20,20,20), createVector(rectSizeX,25));
+        DrawRect(posX - rectSize.x / 2, posY, color(20,20,20), createVector(rectSize.x, rectSize.y));
         fill(colour);
         textAlign(CENTER);
         text(wordOrIndex, posX, posY + 5);
@@ -360,7 +378,7 @@ function DrawPalette() {
     //Draw current game word
     if (Game.gameActive) {
         if (Game.currentWord) DrawWord(Game.currentWord);
-        if (Game.timeLeft >= 0) DrawWord(Game.timeLeft.toString(), width - 50, 110, WHITE, 50);
+        if (Game.timeLeft >= 0) DrawWord(Game.timeLeft.toString(), width - 50, 110, WHITE, createVector(50, 30));
     }
 }
 
@@ -634,13 +652,13 @@ function SocketSetup() {
         var playerGuessPos = Game.playerPos[Game.players.findIndex(x => x.id === data.player)];
 
         if (Game.guess(data.guess)) {
-            DrawWord(data.guess, width - 100, playerGuessPos.y, DISPLAYGREEN, 150);
+            DrawWord(data.guess, width - 100, playerGuessPos.y, DISPLAYGREEN, createVector(180, 30));
             DrawImage(1, width - 30, playerGuessPos.y, createVector(30,30));
 
             Game.guessReply(true, data);
         }
         else {
-            DrawWord(data.guess, width - 100, playerGuessPos.y, DISPLAYRED, 150);
+            DrawWord(data.guess, width - 100, playerGuessPos.y, DISPLAYRED, createVector(180, 30));
             DrawImage(3, width - 30, playerGuessPos.y, createVector(30,30));
 
             Game.guessReply(false, data);
@@ -651,11 +669,11 @@ function SocketSetup() {
         var playerGuessPos = Game.playerPos[Game.players.findIndex(x => x.id === data.player)];
 
         if (data.result) {
-            DrawWord(data.guess, width - 100, playerGuessPos.y, DISPLAYGREEN, 150);
+            DrawWord(data.guess, width - 100, playerGuessPos.y, DISPLAYGREEN, createVector(180, 30));
             DrawImage(1, width - 30, playerGuessPos.y, createVector(30,30));
         }
         else {
-            DrawWord(data.guess, width - 100, playerGuessPos.y, DISPLAYRED, 150);
+            DrawWord(data.guess, width - 100, playerGuessPos.y, DISPLAYRED, createVector(180, 30));
             DrawImage(3, width - 30, playerGuessPos.y, createVector(30,30));
         }
     });

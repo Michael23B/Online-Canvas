@@ -11,12 +11,13 @@ app.use(express.static('public'));
 var connectedUsers = [];
 var gamePlayers = [];
 var playerId = 0;
+var scoreGoal = 50;
 
 console.log("Listening on port 3000. Please port forward if you wish to connect over the internet.\n")
 
 io.sockets.on('connection', function(socket) {
     //On connect, add the current connection to client list
-    connectedUsers.push({id: socket.id, name: "👌"});
+    connectedUsers.push({id: socket.id, name: "👌", score: 0});
 
     //Log user array and connections length
     console.log("New user connected!\nUsers connected: " + Object.keys(io.sockets.connected).length);
@@ -26,7 +27,7 @@ io.sockets.on('connection', function(socket) {
 
     //Request canvas for the new client
     //TEMPORARY DISABLE BECAUSE ITS MEGA SLOW
-    if (connectedUsers.length > 10) {
+    if (connectedUsers.length > 100) {
         socket.to(connectedUsers[0].id).emit('requestCanvas', { from: socket.id });
         console.log("Request from " + socket.id + ". To " + connectedUsers[0]);
         io.emit('loading', true);
@@ -98,14 +99,11 @@ io.sockets.on('connection', function(socket) {
     //Drawing game functions
 
     //TODO: store words.txt on server instead of locally and send the word/index to the currently drawing player
-    //TODO: keep score for players
     //On 'startGame' -> everyone
     socket.on('startGame', function() {
-        let joiningGame = false;
-        if (gamePlayers.length > 0) joiningGame = true;
+        if (gamePlayers.length > 0) return;//if joining game wait until next round
 
         gamePlayers = connectedUsers.slice(0);
-        if (joiningGame) return; //if joining game, add them to the gamePlayers and let them wait until next round
 
         playerId = socket.id;
         //playerId = gamePlayers.findIndex(x => x === socket.id);
@@ -114,7 +112,7 @@ io.sockets.on('connection', function(socket) {
             currentPlayerId: playerId
         };
 
-        if (!joiningGame) io.emit('startGame', data);
+        io.emit('startGame', data);
     });
 
     //On 'guess' -> player who is currently drawing
@@ -124,10 +122,17 @@ io.sockets.on('connection', function(socket) {
 
     //On 'guessReply' -> everyone but sender
     socket.on('guessReply', function(data) {
+        //Correct guess, assign points
+        if (data.result) {
+            connectedUsers[connectedUsers.findIndex(x => x.id === data.player)].score += data.score;
+            //Half score goes to the drawer
+            connectedUsers[connectedUsers.findIndex(x => x.id === playerId)].score += Math.round(data.score / 2);
+        }
+
         socket.broadcast.emit('guessReply', data);
     });
 
-    //On 'guessReply' -> everyone but sender
+    //On 'hint' -> everyone but sender
     socket.on('hint', function(data) {
         socket.broadcast.emit('hint', data);
     });
@@ -139,6 +144,17 @@ io.sockets.on('connection', function(socket) {
 
     function NextPlayer() {
         if (gamePlayers.length === 0) return;
+
+        //Check if any player has won
+        for (let i = 0; i < connectedUsers.length;  ++i) {
+            if (connectedUsers[i].score > scoreGoal) {
+                //TODO: probably should factor in that two people could go above the goal at the same time
+                WinGame(connectedUsers[i]);
+                return;
+            }
+        }
+
+        gamePlayers = connectedUsers;
         let currPlayerIndex = gamePlayers.findIndex(x => x.id === socket.id);
         currPlayerIndex++;
         currPlayerIndex %= gamePlayers.length;
@@ -149,6 +165,14 @@ io.sockets.on('connection', function(socket) {
             currentPlayerId: playerId
         };
         io.emit('startGame', data);
+    }
+
+    function WinGame(player) {
+        io.emit('winGame', player.id);
+
+        for (let i = 0; i < connectedUsers.length;  ++i) {
+            connectedUsers[i].score = 0;
+        }
     }
 
 });
