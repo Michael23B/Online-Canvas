@@ -1,3 +1,58 @@
 body {
     background: url("img/backgroundDim.png") repeat;
 }
+
+h1, h2, h3 {
+    background: linear-gradient(to right, orange , greenyellow, lightblue, cyan, violet);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-family: 'Do Hyeon', sans-serif;
+    font-size: 20px;
+    line-height: 20px;
+    padding-left: 20px;
+    padding-top:10px;
+}
+
+h2 {
+     padding-left:40px;
+     padding-top: 0;
+ }
+
+h2 {
+    margin-top: -15px;
+}
+
+.red {
+     background: red;
+     -webkit-background-clip: text;
+     -webkit-text-fill-color: red;
+ }
+
+.green {
+    background: green;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: green;
+}
+
+.blue {
+    background: blue;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: blue;
+}
+
+#container {
+    width: 100%;
+    margin: auto;
+}
+
+#container1st {
+    width: 500px;
+    float: left;
+    height: 100%;
+}
+
+#container2nd {
+    width: 780px;
+    float: left;
+    height: 100%;
+}

@@ -27,9 +27,9 @@ io.sockets.on('connection', function(socket) {
 
     //Request canvas for the new client
     //TEMPORARY DISABLE BECAUSE ITS MEGA SLOW
-    if (connectedUsers.length > 100) {
+    if (connectedUsers.length > 1) {
         socket.to(connectedUsers[0].id).emit('requestCanvas', { from: socket.id });
-        console.log("Request from " + socket.id + ". To " + connectedUsers[0]);
+        console.log("Request from " + socket.id + ". To " + connectedUsers[0].id);
         io.emit('loading', true);
     }
     else {
@@ -77,19 +77,8 @@ io.sockets.on('connection', function(socket) {
 
     //On 'sendCanvas', send the canvas to the new client
     socket.on('sendCanvas', function(data) {
-        socket.to(data.to).emit('sendCanvas', data.canvas);
+        socket.to(data.to).emit('sendCanvas', data);
         console.log("sendCanvas to:" + data.to);
-    });
-
-    socket.on('requestCanvas', function(data) {
-        console.log("Got a request over here");
-        if (connectedUsers.length > 1) {
-            socket.to(connectedUsers[0].id).emit('requestCanvas', { from: data.from });
-            console.log("Canvas request from " + data.from + ". To " + connectedUsers[0]);
-        }
-        else {
-            io.emit('loading', false);
-        }
     });
 
     socket.on('loading', function(data) {
@@ -145,16 +134,7 @@ io.sockets.on('connection', function(socket) {
     function NextPlayer() {
         if (gamePlayers.length === 0) return;
 
-        //Check if any player has won
-        for (let i = 0; i < connectedUsers.length;  ++i) {
-            if (connectedUsers[i].score > scoreGoal) {
-                //TODO: probably should factor in that two people could go above the goal at the same time
-                WinGame(connectedUsers[i]);
-                return;
-            }
-        }
-
-        gamePlayers = connectedUsers;
+        gamePlayers = connectedUsers.slice(0);
         let currPlayerIndex = gamePlayers.findIndex(x => x.id === socket.id);
         currPlayerIndex++;
         currPlayerIndex %= gamePlayers.length;
@@ -164,15 +144,31 @@ io.sockets.on('connection', function(socket) {
             players: gamePlayers,
             currentPlayerId: playerId
         };
+
+        //Check if any player has won
+        for (let i = 0; i < connectedUsers.length;  ++i) {
+            if (connectedUsers[i].score > scoreGoal) {
+                //TODO: probably should factor in that two people could go above the goal at the same time
+                //Set the currentPlayerId to the winning players Id
+                data.winnerName = connectedUsers[i].name;
+                data.score = connectedUsers[i].score;
+                WinGame(data);
+                return;
+            }
+        }
+
         io.emit('startGame', data);
     }
 
-    function WinGame(player) {
-        io.emit('winGame', player.id);
+    function WinGame(data) {
+        io.emit('winGame', data);
 
+        //Reset scores
         for (let i = 0; i < connectedUsers.length;  ++i) {
             connectedUsers[i].score = 0;
         }
+        gamePlayers = [];
+        playerId = 0;
     }
 
 });

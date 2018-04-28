@@ -69,11 +69,23 @@ var Game = {
         Game.players = data.players;
         Game.hintCount = 0;
 
+        Game.drawPlayers();
+    },
+    endRound: function() {
+        Game.currentPlayerId = null; //This round if finished, don't accept any more guesses
+        Game.currentWordIndex = null;
+        Game.currentWord = "";
+        Game.hint = "";
+        Game.newWordbtn.hide();
+        DrawWord(" ");  //Clear the previous word
+        socket.emit('nextPlayer');
+    },
+    drawPlayers: function() {
         //Draw players tags
         for (let i = 0; i < Game.players.length; ++i) {
             (function (i) {
                 //Current drawer name is blue
-                let textCol = Game.players[i].id === data.currentPlayerId ? DISPLAYBLUE : WHITE;
+                let textCol = Game.players[i].id === Game.currentPlayerId ? DISPLAYBLUE : WHITE;
                 //Order positions with player 1 at the top
                 let playerPosOrder = (Game.players.length - 1) - i;
                 //Set player positions (used for drawing their guesses and names)
@@ -87,15 +99,6 @@ var Game = {
                     25);
             }).call(this, i);
         }
-    },
-    endRound: function() {
-        Game.currentPlayerId = null; //This round if finished, don't accept any more guesses
-        Game.currentWordIndex = null;
-        Game.currentWord = "";
-        Game.hint = "";
-        Game.newWordbtn.hide();
-        DrawWord(" ");  //Clear the previous word
-        socket.emit('nextPlayer');
     },
     getHint: function() {
         Game.hint = "";
@@ -159,6 +162,19 @@ var Game = {
 
         return score;
     },
+    reset: function() {
+        Game.startTime = 0;
+        Game.timeLeft = 0;
+        Game.gamebtn.show();
+        Game.gameActive = false;
+        Game.currentPlayerId = undefined;
+        Game.gameInput.value('');
+        Game.gameInput.hide();
+        Game.players = undefined;
+        Game.gameInput.hide();
+        Game.currentWord = "";
+        Game.newWordbtn.hide();
+    },
     //UI
     gamebtn: undefined,
     newWordbtn: undefined,
@@ -177,7 +193,9 @@ function preload() {
 }
 
 function setup() {
-  createCanvas(1280, 768);
+  let canvas = createCanvas(1280, 768);
+  canvas.id('drawingCanvasOfHell');
+  canvas.parent("drawingcanvasgoeshere")
   background(20);
 
   //Setup ip input
@@ -353,6 +371,7 @@ function DrawWord(wordOrIndex, posX = width / 2, posY = 5, colour = WHITE, rectS
 
 //UI
 function DrawPalette() {
+    textSize(18);
     //Background for text display
     DrawRect(width - 110, 0, color(20,20,20), createVector(110, 140));
 
@@ -379,6 +398,7 @@ function DrawPalette() {
     if (Game.gameActive) {
         if (Game.currentWord) DrawWord(Game.currentWord);
         if (Game.timeLeft >= 0) DrawWord(Game.timeLeft.toString(), width - 50, 110, WHITE, createVector(50, 30));
+        if (Game.players) Game.drawPlayers();
     }
 }
 
@@ -572,14 +592,15 @@ function SendImage(index) {
 
 //When a new client joins, host will send his canvas pixel information
 function SendCanvas(from) {
-    loadPixels();
-    var canvasInfo = pixels;
+    //Get the canvas and create a png from its data
+    let canvas = document.getElementById("drawingCanvasOfHell");
+    let img = canvas.toDataURL("image/png");
 
     var data = {
-        canvas: canvasInfo,
+        img: img,
         to: from
     };
-    console.log("Sending canvas");
+
     socket.emit('sendCanvas', data);
 }
 
@@ -606,15 +627,19 @@ function SocketSetup() {
         SendCanvas(data.from);
     });
 
-    //TODO: replace this function its way too slow
     socket.on('sendCanvas', function(data) {
-        loadPixels();
-        //this is omega slow
-        for (var i = 0; i < pixels.length; ++i) {
-            pixels[i] = data[i];
-        }
-        updatePixels();
-        console.log("Finished applying new canvas.");
+        //Create and image from the data
+        let img = new Image();
+        img.src = data.img;
+        //Get the canvas and context
+        let canvas = document.getElementById("drawingCanvasOfHell");
+        let ctx = canvas.getContext('2d');
+        //When the image finishes loading, display it on the canvas
+        img.onload = function() {
+            ctx.drawImage(img, 0, 0);
+            img.style.display = 'none';
+        };
+
         socket.emit('loading', false);
     });
 
@@ -684,7 +709,16 @@ function SocketSetup() {
 
     socket.on('hint', function(data) {
         Game.currentWord = data;
-    })
+    });
+
+    socket.on('winGame', function(data) {
+        DrawWord(data.winnerName + " is the winner. (" + data.score + ')',
+            width / 2, height / 2,
+            DISPLAYGREEN,
+            createVector(375,75), 40);
+
+        Game.reset();
+    });
 }
 
 //TODO: Add input to an array and send it to joining players. Clear this array when clearing canvas
