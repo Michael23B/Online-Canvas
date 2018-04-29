@@ -11,7 +11,7 @@ app.use(express.static('public'));
 var connectedUsers = [];
 var gamePlayers = [];
 var playerId = 0;
-var scoreGoal = 50;
+var scoreGoal = 1;
 
 console.log("Listening on port 3000. Please port forward if you wish to connect over the internet.\n")
 
@@ -29,7 +29,6 @@ io.sockets.on('connection', function(socket) {
     //TEMPORARY DISABLE BECAUSE ITS MEGA SLOW
     if (connectedUsers.length > 1) {
         socket.to(connectedUsers[0].id).emit('requestCanvas', { from: socket.id });
-        console.log("Request from " + socket.id + ". To " + connectedUsers[0].id);
         io.emit('loading', true);
     }
     else {
@@ -47,9 +46,14 @@ io.sockets.on('connection', function(socket) {
 
             //if the current player (drawer) disconnected go to the next player
             if (socket.id === playerId) {
-                NextPlayer();
+                nextPlayer();
             }
         }
+
+        console.log("User disconnected!");
+        console.log("Users:");
+        console.log(connectedUsers);
+        console.log('');
     });
 
     //On 'name', change players name
@@ -78,7 +82,6 @@ io.sockets.on('connection', function(socket) {
     //On 'sendCanvas', send the canvas to the new client
     socket.on('sendCanvas', function(data) {
         socket.to(data.to).emit('sendCanvas', data);
-        console.log("sendCanvas to:" + data.to);
     });
 
     socket.on('loading', function(data) {
@@ -128,11 +131,13 @@ io.sockets.on('connection', function(socket) {
 
     //On 'nextPlayer' -> everyone
     socket.on('nextPlayer', function() {
-        NextPlayer();
+        nextPlayer();
     });
 
-    function NextPlayer() {
+    function nextPlayer() {
         if (gamePlayers.length === 0) return;
+
+        if (checkForWinner()) return;
 
         gamePlayers = connectedUsers.slice(0);
         let currPlayerIndex = gamePlayers.findIndex(x => x.id === socket.id);
@@ -145,22 +150,45 @@ io.sockets.on('connection', function(socket) {
             currentPlayerId: playerId
         };
 
-        //Check if any player has won
-        for (let i = 0; i < connectedUsers.length;  ++i) {
-            if (connectedUsers[i].score > scoreGoal) {
-                //TODO: probably should factor in that two people could go above the goal at the same time
-                //Set the currentPlayerId to the winning players Id
-                data.winnerName = connectedUsers[i].name;
-                data.score = connectedUsers[i].score;
-                WinGame(data);
-                return;
-            }
-        }
-
         io.emit('startGame', data);
     }
 
-    function WinGame(data) {
+    function checkForWinner() {
+        let winners = [];
+
+        //Check for any players with a score higher than the goal
+        for (let i = 0; i < connectedUsers.length;  ++i) {
+            if (connectedUsers[i].score > scoreGoal) {
+                winners.push(connectedUsers[i]);
+            }
+        }
+
+        if (winners.length > 0) {
+            //Since the guesser and the drawer gain score at the same time, they could both reach the goal at the same time
+            if (winners.length > 1) {
+                //Sort highest to lowest score
+                winners.sort(function(x,y) { return x.score < y.score });
+
+                //Highest score wins but if they are the same guesser should win
+                if (winners[0].score === winners[1].score) {
+                    //Equal score, if [0] is drawer, remove them otherwise [1] is the drawer
+                    if (winners[0].id === playerId) winners.splice(0,1);
+                }
+            }
+
+            let data = {
+                winnerName: winners[0].name,
+                score: winners[0].score
+            };
+
+            winGame(data);
+            return true;
+        }
+
+        return false;
+    }
+
+    function winGame(data) {
         io.emit('winGame', data);
 
         //Reset scores
@@ -170,6 +198,4 @@ io.sockets.on('connection', function(socket) {
         gamePlayers = [];
         playerId = 0;
     }
-
 });
-//TODO: change loading bool into an int that increases and decreases so if more than one client joins, the loading isn't stopped early.

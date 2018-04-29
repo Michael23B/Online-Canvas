@@ -1,6 +1,4 @@
 var socket = io;
-//var socket = io.connect("localhost:3000");
-//SocketSetup();
 
 //keep track of our colour
 var r = 150, g = 150, b = 150, drawSize; //TODO: add an alpha for colour
@@ -352,7 +350,7 @@ function DrawImage(imageIndex, x = mouseX, y = mouseY, imageSize = drawSize) {
     image(images[imageIndex], x, y, imageSize.x * 2, imageSize.y * 2);
 }
 
-function DrawWord(wordOrIndex, posX = width / 2, posY = 5, colour = WHITE, rectSize = createVector(225, 30), fontSize = 18) {
+function DrawWord(wordOrIndex, posX = width / 2, posY = 5, colour = WHITE, rectSize = createVector(275, 30), fontSize = 18) {
     textSize(fontSize);
     if (typeof wordOrIndex === "number") {
         var word = words[wordOrIndex];
@@ -616,18 +614,16 @@ function SendGuess(guess) {
 
 function SocketSetup() {
     //Receive
-    socket.on('mouse', function(data) {
-        DrawDot(data.x, data.y, color(data.r, data.g, data.b), createVector(data.sizeX,data.sizeY));
+    socket.on('mouse', function (data) {
+        DrawDot(data.x, data.y, color(data.r, data.g, data.b), createVector(data.sizeX, data.sizeY));
     });
 
-    socket.on('requestCanvas', function(data) {
-        console.log("received a request from " + data.from);
-
+    socket.on('requestCanvas', function (data) {
         loading = true;
         SendCanvas(data.from);
     });
 
-    socket.on('sendCanvas', function(data) {
+    socket.on('sendCanvas', function (data) {
         //Create and image from the data
         let img = new Image();
         img.src = data.img;
@@ -635,7 +631,7 @@ function SocketSetup() {
         let canvas = document.getElementById("drawingCanvasOfHell");
         let ctx = canvas.getContext('2d');
         //When the image finishes loading, display it on the canvas
-        img.onload = function() {
+        img.onload = function () {
             ctx.drawImage(img, 0, 0);
             img.style.display = 'none';
         };
@@ -643,83 +639,89 @@ function SocketSetup() {
         socket.emit('loading', false);
     });
 
-    socket.on('loading', function(data) {
-       loading = data;
+    socket.on('loading', function (data) {
+        loading = data;
         textAlign(LEFT, TOP);
-       if (data) {
-           fill(GREEN);
-           noStroke();
-           rect(5, 60, 150, 25, 7.5, 7.5, 7.5, 7.5);
-           fill(WHITE);
-           text("Player loading...", 12.5, 63.5);
-       }
-       else {
-           fill(GREEN);
-           noStroke();
-           rect(5, 60, 150, 25, 7.5, 7.5, 7.5, 7.5);
-           fill(WHITE);
-           text("Player joined!", 12.5, 63.5);
-       }
+        if (data) {
+            fill(GREEN);
+            noStroke();
+            rect(5, 60, 150, 25, 7.5, 7.5, 7.5, 7.5);
+            fill(WHITE);
+            text("Player loading...", 12.5, 63.5);
+        }
+        else {
+            fill(GREEN);
+            noStroke();
+            rect(5, 60, 150, 25, 7.5, 7.5, 7.5, 7.5);
+            fill(WHITE);
+            text("Player joined!", 12.5, 63.5);
+        }
     });
 
-    socket.on('clearCanvas', function() {
+    socket.on('clearCanvas', function () {
         ClearCanvas();
     });
 
-    socket.on('image', function(data) {
+    socket.on('image', function (data) {
         DrawImage(data.imgIndex, data.posX, data.posY, createVector(data.imgSizeX, data.imgSizeY));
     });
 
-    socket.on('guess', function(data) {
+    socket.on('guess', function (data) {
         //if the game hasn't started or you aren't the current player, return
         if (Game.currentPlayerId !== socket.id || Game.gameActive === false) return;
 
-        var playerGuessPos = Game.playerPos[Game.players.findIndex(x => x.id === data.player)];
+        let playerGuessPos = Game.playerPos[Game.players.findIndex(x => x.id === data.player)];
 
         if (Game.guess(data.guess)) {
             DrawWord(data.guess, width - 100, playerGuessPos.y, DISPLAYGREEN, createVector(180, 30));
-            DrawImage(1, width - 30, playerGuessPos.y, createVector(30,30));
+            DrawImage(1, width - 30, playerGuessPos.y, createVector(30, 30));
 
             Game.guessReply(true, data);
         }
         else {
             DrawWord(data.guess, width - 100, playerGuessPos.y, DISPLAYRED, createVector(180, 30));
-            DrawImage(3, width - 30, playerGuessPos.y, createVector(30,30));
+            DrawImage(3, width - 30, playerGuessPos.y, createVector(30, 30));
 
             Game.guessReply(false, data);
         }
     });
 
-    socket.on('guessReply', function(data) {
-        var playerGuessPos = Game.playerPos[Game.players.findIndex(x => x.id === data.player)];
+    socket.on('guessReply', function (data) {
+        let playerGuessPos = Game.playerPos[Game.players.findIndex(x => x.id === data.player)];
 
         if (data.result) {
             DrawWord(data.guess, width - 100, playerGuessPos.y, DISPLAYGREEN, createVector(180, 30));
-            DrawImage(1, width - 30, playerGuessPos.y, createVector(30,30));
+            DrawImage(1, width - 30, playerGuessPos.y, createVector(30, 30));
         }
         else {
             DrawWord(data.guess, width - 100, playerGuessPos.y, DISPLAYRED, createVector(180, 30));
-            DrawImage(3, width - 30, playerGuessPos.y, createVector(30,30));
+            DrawImage(3, width - 30, playerGuessPos.y, createVector(30, 30));
         }
     });
 
-    socket.on('startGame', function(data) {
+    socket.on('startGame', function (data) {
         Game.beginRound(data.currentPlayerId === socket.id, data)
     });
 
-    socket.on('hint', function(data) {
+    socket.on('hint', function (data) {
         Game.currentWord = data;
     });
 
-    socket.on('winGame', function(data) {
-        DrawWord(data.winnerName + " is the winner. (" + data.score + ')',
+    socket.on('winGame', function (data) {
+        for (let i = 0; i < 100; ++i) {
+            DrawImage(1, random(0, width), random(0, height), random(5, 120));
+        }
+
+        DrawWord(data.winnerName + " is the winner! (" + data.score + " points)",
             width / 2, height / 2,
             DISPLAYGREEN,
-            createVector(375,75), 40);
+            createVector(800, 55), 40);
+
+        //TODO: play a winning sound here for everyone
 
         Game.reset();
     });
 }
-
-//TODO: Add input to an array and send it to joining players. Clear this array when clearing canvas
-//need bigger text box for player names add way for players to select names
+//TODO: add alpha and rotation
+//TODO: print the last guess made by each user in the draw loop so it cant be drawn over
+//TODO: add a rectangle that covers all drawing in the players/guessing area. size needs to match players in the game
