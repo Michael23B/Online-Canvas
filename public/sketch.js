@@ -30,6 +30,7 @@ var Game = {
     roundLength: 120,
     timeLeft: 0,
     hintCount: 0,
+    winSong: undefined,
     //Functions
     guess: function (word) {
         return words.findIndex(x => x === word) === this.currentWordIndex;
@@ -185,15 +186,28 @@ function preload() {
         images[i] = loadImage('/img/' + i + '.png');
     }
 
-//TODO: Use drop to let clients upload custom images. https://p5js.org/reference/#/p5.Element/drop
-    words = loadStrings('data/words.txt');
     names = loadStrings('data/names.txt');
 }
 
+var drawnImg;
+
 function setup() {
+  //We can load these asynchronously
+  words = loadStrings('data/words.txt');
+  Game.winSong = loadSound('sound/winSong.mp3');
+
+  //Create canvas
   let canvas = createCanvas(1280, 768);
   canvas.id('drawingCanvasOfHell');
-  canvas.parent("drawingcanvasgoeshere")
+  canvas.parent("drawingcanvasgoeshere");
+  /*
+  canvas.drop(function(file) {
+      tint(255,255,255,10);
+      let img = createImg(file.data).hide();
+      // Draw the image onto the canvas
+      drawnImg = image(img,width/2,height/2,width,height);
+  });
+  */
   background(20);
 
   //Setup ip input
@@ -345,15 +359,16 @@ function DrawRect(x = mouseX, y = mouseY, dotColour = color(r,g,b), rectSize = d
     rect(x, y , rectSize.x, rectSize.y);
 }
 
-function DrawImage(imageIndex, x = mouseX, y = mouseY, imageSize = drawSize) {
+function DrawImage(imageIndex, x = mouseX, y = mouseY, imageSize = drawSize, imageTint = color(255,255,255)) {
     //double draw size for images
+    tint(imageTint);
     image(images[imageIndex], x, y, imageSize.x * 2, imageSize.y * 2);
 }
 
 function DrawWord(wordOrIndex, posX = width / 2, posY = 5, colour = WHITE, rectSize = createVector(275, 30), fontSize = 18) {
     textSize(fontSize);
     if (typeof wordOrIndex === "number") {
-        var word = words[wordOrIndex];
+        let word = words[wordOrIndex];
         DrawRect(posX - rectSize.x / 2, posY + 5, color(20,20,20), createVector(rectSize.x, rectSize.y));
         fill(WHITE);
         textAlign(CENTER);
@@ -371,14 +386,13 @@ function DrawWord(wordOrIndex, posX = width / 2, posY = 5, colour = WHITE, rectS
 function DrawPalette() {
     textSize(18);
     //Background for text display
-    DrawRect(width - 110, 0, color(20,20,20), createVector(110, 140));
+    DrawRect(width - 110, 0, color(20,20,20), createVector(110, 130));
 
     //Draw current size info
     noStroke();
     textAlign(RIGHT, RIGHT);
     fill(WHITE);
-    //var drawSizeDisplay = 'Size = (' + Math.round(drawSize.x) + ', ' + Math.round(drawSize.y) + ')'; //x,y size
-    var drawSizeDisplay = 'Size: ' + Math.round(drawSize.x); //for now we just use one size for both width and height
+    let drawSizeDisplay = 'Size: ' + Math.round(drawSize.x); //for now we just use one size for both width and height
     text(drawSizeDisplay, width - 5, 10);
 
     //Draw current colour info
@@ -390,12 +404,12 @@ function DrawPalette() {
     text(Math.round(b), width - 5, 35);
 
     //Draw current colour
-    DrawDot(width - 45, 80, color(r,g,b), createVector(30,30));
+    DrawDot(width - 45, 75, color(r,g,b), createVector(30,30));
 
     //Draw current game word
     if (Game.gameActive) {
         if (Game.currentWord) DrawWord(Game.currentWord);
-        if (Game.timeLeft >= 0) DrawWord(Game.timeLeft.toString(), width - 50, 110, WHITE, createVector(50, 30));
+        if (Game.timeLeft >= 0) DrawWord(Game.timeLeft.toString(), width - 50, 100, WHITE, createVector(50, 30));
         if (Game.players) Game.drawPlayers();
     }
 }
@@ -403,9 +417,9 @@ function DrawPalette() {
 //Controls
 //Approach colour by amount each frame
 function ApproachColour(colour, amount = random(0, 4), darken = false) {
-    var newR = colour._array[0] * 255;
-    var newG = colour._array[1] * 255;
-    var newB = colour._array[2] * 255;
+    let newR = colour._array[0] * 255;
+    let newG = colour._array[1] * 255;
+    let newB = colour._array[2] * 255;
 
     if (darken) {
         //Approach a specific colour
@@ -427,7 +441,7 @@ function ApproachColour(colour, amount = random(0, 4), darken = false) {
 
 function CheckTimer() {
     if (Game.timeLeft > 0) {
-        var timePassed = Math.round((millis() - Game.startTime) / 1000);
+        let timePassed = Math.round((millis() - Game.startTime) / 1000);
         Game.timeLeft = Game.roundLength - timePassed;
 
         if (Game.currentPlayerId !== socket.id) return;
@@ -492,7 +506,7 @@ function ImproveAndSendHint(amount = 1) {
 }
 
 function CheckInput() {
-    for (var i = 0; i < keys.length; ++i) {
+    for (let i = 0; i < keys.length; ++i) {
         DoWork(keys[i]);
     }
 }
@@ -543,11 +557,11 @@ function PlaceImageByIndex(i) {
 function keyPressed() {
     //ignore tab, backspace, enter and space
     if (keyCode === 9 || keyCode === 8 || keyCode === 13 || keyCode === 32) return;
-    keys.push(key.toLowerCase());
+    if (!keys.includes(key.toLowerCase)) keys.push(key.toLowerCase());
 }
 
 function keyReleased(e) {
-    var keyIndex = keys.findIndex(x => x === e.key.toLowerCase());
+    let keyIndex = keys.findIndex(x => x === e.key.toLowerCase());
     if (keyIndex !== -1) keys.splice(keyIndex, 1);
 }
 
@@ -594,7 +608,7 @@ function SendCanvas(from) {
     let canvas = document.getElementById("drawingCanvasOfHell");
     let img = canvas.toDataURL("image/png");
 
-    var data = {
+    let data = {
         img: img,
         to: from
     };
@@ -604,7 +618,7 @@ function SendCanvas(from) {
 
 //Guessing game
 function SendGuess(guess) {
-    var data = {
+    let data = {
         guess: guess,
         player: socket.id
     };
@@ -708,8 +722,11 @@ function SocketSetup() {
     });
 
     socket.on('winGame', function (data) {
+        DrawImage(0,width / 2, height / 2, createVector(400,400), color(215,255,215,45));
         for (let i = 0; i < 100; ++i) {
-            DrawImage(1, random(0, width), random(0, height), random(5, 120));
+            DrawImage(1, random(0, width), random(0, height),
+                createVector(random(15, 100),random(15, 100)),
+                color(255,255,255,random(10,255)));
         }
 
         DrawWord(data.winnerName + " is the winner! (" + data.score + " points)",
@@ -717,11 +734,13 @@ function SocketSetup() {
             DISPLAYGREEN,
             createVector(800, 55), 40);
 
-        //TODO: play a winning sound here for everyone
+        Game.winSong.play();
 
         Game.reset();
     });
 }
-//TODO: add alpha and rotation
 //TODO: print the last guess made by each user in the draw loop so it cant be drawn over
 //TODO: add a rectangle that covers all drawing in the players/guessing area. size needs to match players in the game
+//TODO: if you start a game solo or everyone but you disconnects, cancel the game
+//TODO: don't draw when you click a button
+//TODO: bug when tabbing out while holding down a button doesn't let go of the button

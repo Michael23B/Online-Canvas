@@ -11,7 +11,7 @@ app.use(express.static('public'));
 var connectedUsers = [];
 var gamePlayers = [];
 var playerId = 0;
-var scoreGoal = 1;
+var scoreGoal = 10;
 
 console.log("Listening on port 3000. Please port forward if you wish to connect over the internet.\n")
 
