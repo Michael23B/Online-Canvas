@@ -1,21 +1,25 @@
-var socket = io;
+let socket = io;
 
 //keep track of our colour
-var r = 150, g = 150, b = 150, drawSize; //TODO: add an alpha for colour
+let r = 150, g = 150, b = 150, drawSize;
 //predefine constants
-var BLACK, WHITE, RED, GREEN, BLUE, DISPLAYRED, DISPLAYGREEN, DISPLAYBLUE, DEFAULTSIZE, PLAYERLISTPOS;
+let BLACK, WHITE, RED, GREEN, BLUE, DISPLAYRED, DISPLAYGREEN, DISPLAYBLUE, DEFAULTSIZE, PLAYERLISTPOS;
 //image array
-var images = [];
+let images = [];
 //word array
-var words = [];
+let words = [];
 //names array
-var names = [];
+let names = [];
 //is a client joining?
-var loading = true;
+let loading = true;
 //currently pressed keys
-var keys = [];
+let keys = [];
+//shift key down
+let shiftDown = false;
+//hit sound
+let correctSound = undefined;
 //word guessing game object
-var Game = {
+let Game = {
     //Variables
     currentWordIndex: 0,
     currentWord: "",
@@ -181,7 +185,7 @@ var Game = {
 };
 
 function preload() {
-    let imgCount = 10;  //number of images in 'img/' to load
+    let imgCount = 20;  //number of images in 'img/' to load
     for (let i = 0; i < imgCount; ++i) {
         images[i] = loadImage('/img/' + i + '.png');
     }
@@ -189,17 +193,17 @@ function preload() {
     names = loadStrings('data/names.txt');
 }
 
-var drawnImg;
-
 function setup() {
   //We can load these asynchronously
   words = loadStrings('data/words.txt');
   Game.winSong = loadSound('sound/winSong.mp3');
+  correctSound = loadSound('sound/correct.mp3');
 
   //Create canvas
   let canvas = createCanvas(1280, 768);
   canvas.id('drawingCanvasOfHell');
   canvas.parent("drawingcanvasgoeshere");
+  //TODO: takes two drops before the method is called it seems
   /*
   canvas.drop(function(file) {
       tint(255,255,255,10);
@@ -249,6 +253,11 @@ function setup() {
     namebtn.style('font-size', '18px');
     namebtn.size(50, 30);
     namebtn.mousePressed(function() {
+        if (!socket.emit) {
+            fill(230, 100, 100, 100);
+            text("Connect first!", 12.5, 85);
+            return;
+        }
         socket.emit('name', nameInput.value());
 
         nameInput.hide();
@@ -506,6 +515,8 @@ function ImproveAndSendHint(amount = 1) {
 }
 
 function CheckInput() {
+    shiftDown = keys.includes(16);
+
     for (let i = 0; i < keys.length; ++i) {
         DoWork(keys[i]);
     }
@@ -513,26 +524,27 @@ function CheckInput() {
 
 function DoWork(key) {
     //image keys
-    if (!key || key === " ") return;
-    if (key >= 0 && key <= 9) {
-        PlaceImageByIndex(Number(key));
+    if (key >= 48 && key <= 57) {
+        //Reduce by 48 to get 0 - 9. If shift is down, we want index 10 - 19 instead
+        let index = shiftDown ? Number(key - 38) : Number(key - 48);
+        PlaceImageByIndex(index);
         return;
     }
     //control drawing keys
     switch (key) {
-        case 'q':
+        case 81://q
             ApproachColour(RED);
             break;
-        case 'w':
+        case 87://w
             ApproachColour(GREEN);
             break;
-        case 'e':
+        case 69://e
             ApproachColour(BLUE);
             break;
-        case 'd':
+        case 68://d
             ControlSize();
             break;
-        case 's':
+        case 83://s
             ControlSize(-0.5);
             break;
         default:
@@ -556,13 +568,18 @@ function PlaceImageByIndex(i) {
 //keep track of all keys being held down
 function keyPressed() {
     //ignore tab, backspace, enter and space
-    if (keyCode === 9 || keyCode === 8 || keyCode === 13 || keyCode === 32) return;
-    if (!keys.includes(key.toLowerCase)) keys.push(key.toLowerCase());
+    //if (keyCode === 9 || keyCode === 8 || keyCode === 13 || keyCode === 32) return;
+    //if (keyCode === 16)
+    if (!keys.includes(keyCode)) keys.push(keyCode);
+
+    console.log(keys);
 }
 
 function keyReleased(e) {
-    let keyIndex = keys.findIndex(x => x === e.key.toLowerCase());
+    let keyIndex = keys.findIndex(x => x === e.keyCode);
     if (keyIndex !== -1) keys.splice(keyIndex, 1);
+
+    console.log(keys);
 }
 
 function ClearCanvas() {
@@ -577,7 +594,7 @@ function touchStarted() {
 //Networking
 //Send
 function SendMouseInfo() {
-    var data = {
+    let data = {
         x: mouseX,
         y: mouseY,
         r: r,
@@ -591,7 +608,7 @@ function SendMouseInfo() {
 }
 
 function SendImage(index) {
-    var data = {
+    let data = {
         imgIndex: index,
         posX: mouseX,
         posY: mouseY,
@@ -689,6 +706,7 @@ function SocketSetup() {
         if (Game.guess(data.guess)) {
             DrawWord(data.guess, width - 100, playerGuessPos.y, DISPLAYGREEN, createVector(180, 30));
             DrawImage(1, width - 30, playerGuessPos.y, createVector(30, 30));
+            correctSound.play();
 
             Game.guessReply(true, data);
         }
@@ -706,6 +724,7 @@ function SocketSetup() {
         if (data.result) {
             DrawWord(data.guess, width - 100, playerGuessPos.y, DISPLAYGREEN, createVector(180, 30));
             DrawImage(1, width - 30, playerGuessPos.y, createVector(30, 30));
+            correctSound.play();
         }
         else {
             DrawWord(data.guess, width - 100, playerGuessPos.y, DISPLAYRED, createVector(180, 30));
@@ -743,4 +762,8 @@ function SocketSetup() {
 //TODO: add a rectangle that covers all drawing in the players/guessing area. size needs to match players in the game
 //TODO: if you start a game solo or everyone but you disconnects, cancel the game
 //TODO: don't draw when you click a button
-//TODO: bug when tabbing out while holding down a button doesn't let go of the button
+//TODO: when someone wins the game give them tinted emotes
+//TODO: add a mute button to the game 🔊, 🔈
+//TODO: add an offline mode. Just disable all the socket methods.
+//TODO: make variables private when done testing
+//TODO: when a player joins and the host is drawing, the player gets sent the canvas which includes the current word.
