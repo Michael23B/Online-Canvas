@@ -10,6 +10,7 @@ alligator
 alphabet soup
 america
 angry
+anime
 ant
 applause
 apple
@@ -361,7 +362,6 @@ grid paper
 grizzly bear
 gym shorts
 gymnastics
-h
 hail
 hair
 hair dryer
@@ -481,6 +481,7 @@ magnet
 mail
 mailbox
 mailman
+mammoth
 man
 mario kart
 mascot
@@ -540,6 +541,7 @@ nightmare
 noodles
 north pole
 nose
+nothing
 nurse
 oar
 observatory
@@ -584,6 +586,7 @@ pen
 pencil
 pencil case
 people
+pepe
 pepper
 perfume
 person
@@ -748,6 +751,7 @@ socks
 soda
 sofa
 solar eclipse
+something
 song
 space
 spaghetti
@@ -849,6 +853,7 @@ tusk
 tutu
 tuxedo
 tv
+unamused
 underwear
 united states
 upgrade
@@ -874,6 +879,7 @@ watering can
 watermelon
 wax
 wedding cake
+weeb
 weightlifting
 welder
 whale
@@ -884,7 +890,6 @@ wig
 wild boar
 wireless control
 wobble
-mammoth
 word search
 world
 worm

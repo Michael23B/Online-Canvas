@@ -16,8 +16,8 @@ let loading = true;
 let keys = [];
 //shift key down
 let shiftDown = false;
-//hit sound
-let correctSound = undefined;
+//has won a game
+let tintUnlocked = false;
 //word guessing game object
 let Game = {
     //Variables
@@ -35,6 +35,8 @@ let Game = {
     timeLeft: 0,
     hintCount: 0,
     winSong: undefined,
+    correctSound: undefined,
+    volume: 1,
     //Functions
     guess: function (word) {
         return words.findIndex(x => x === word) === this.currentWordIndex;
@@ -107,7 +109,8 @@ let Game = {
         Game.hint = "";
 
         for (let i = 0; i < Game.currentWord.length; ++i) {
-            Game.hint += "_ ";
+            if (Game.currentWord[i] === ' ') Game.hint += "  "; //two spaces
+            else Game.hint += "_ ";
         }
     },
     improveHint: function(amount = 1) {
@@ -197,19 +200,20 @@ function setup() {
   //We can load these asynchronously
   words = loadStrings('data/words.txt');
   Game.winSong = loadSound('sound/winSong.mp3');
-  correctSound = loadSound('sound/correct.mp3');
+  Game.correctSound = loadSound('sound/correct.mp3');
 
   //Create canvas
   let canvas = createCanvas(1280, 768);
   canvas.id('drawingCanvasOfHell');
   canvas.parent("drawingcanvasgoeshere");
-  //TODO: takes two drops before the method is called it seems
+  //TODO: the dropping is inconsistent. Sometimes it takes two drops before an image is drawn.
+  //Alternative might be to get the src of the img element and draw/send that every time a button is pressed
   /*
   canvas.drop(function(file) {
-      tint(255,255,255,10);
+      if (file.type !== "image") return;
       let img = createImg(file.data).hide();
-      // Draw the image onto the canvas
-      drawnImg = image(img,width/2,height/2,width,height);
+      image(img,width/2,height/2);
+      //some emit with the img file
   });
   */
   background(20);
@@ -307,6 +311,26 @@ function setup() {
     });
     Game.newWordbtn.hide();
 
+    //Setup mute button
+    let mutebtn = createButton("🔊 :>");
+    mutebtn.position(width - 240, height - 30);
+    mutebtn.size(75);
+    mutebtn.mousePressed(function() {
+        if (Game.volume) {
+            Game.volume = 0;
+            Game.winSong.setVolume(Game.volume);
+            Game.correctSound.setVolume(Game.volume);
+            mutebtn.html("🔊 :<");
+        }
+        else {
+            Game.volume = 1;
+            Game.winSong.setVolume(Game.volume);
+            Game.correctSound.setVolume(Game.volume);
+            mutebtn.html("🔊 :>");
+        }
+    });
+
+
     //Setup game input
     Game.gameInput = createInput();
     Game.gameInput.position(width - 150, height - 60);
@@ -368,7 +392,7 @@ function DrawRect(x = mouseX, y = mouseY, dotColour = color(r,g,b), rectSize = d
     rect(x, y , rectSize.x, rectSize.y);
 }
 
-function DrawImage(imageIndex, x = mouseX, y = mouseY, imageSize = drawSize, imageTint = color(255,255,255)) {
+function DrawImage(imageIndex, x = mouseX, y = mouseY, imageSize = drawSize, imageTint = WHITE) {
     //double draw size for images
     tint(imageTint);
     image(images[imageIndex], x, y, imageSize.x * 2, imageSize.y * 2);
@@ -501,7 +525,7 @@ function CheckTimer() {
                 break;
             case 3:
                 if (Game.timeLeft <= 25 && Game.currentWord.length > 9) {
-                    ImproveAndSendHint(2);
+                    ImproveAndSendHint(1);
                 }
                 break;
         }
@@ -561,8 +585,14 @@ function ControlSize(amountX = 0.5, amountY = amountX) {
 }
 
 function PlaceImageByIndex(i) {
-    DrawImage(i);
-    SendImage(i);
+    if (tintUnlocked) {
+        DrawImage(i, mouseX, mouseY, drawSize, color(r,g,b));
+        SendImage(i, r, g, b);
+    }
+    else {
+        DrawImage(i);
+        SendImage(i);
+    }
 }
 
 //keep track of all keys being held down
@@ -571,15 +601,11 @@ function keyPressed() {
     //if (keyCode === 9 || keyCode === 8 || keyCode === 13 || keyCode === 32) return;
     //if (keyCode === 16)
     if (!keys.includes(keyCode)) keys.push(keyCode);
-
-    console.log(keys);
 }
 
 function keyReleased(e) {
     let keyIndex = keys.findIndex(x => x === e.keyCode);
     if (keyIndex !== -1) keys.splice(keyIndex, 1);
-
-    console.log(keys);
 }
 
 function ClearCanvas() {
@@ -607,7 +633,7 @@ function SendMouseInfo() {
     socket.emit('mouse', data);
 }
 
-function SendImage(index) {
+function SendImage(index, tintR = 255, tintG = 255, tintB = 255) {
     let data = {
         imgIndex: index,
         posX: mouseX,
@@ -615,6 +641,12 @@ function SendImage(index) {
         imgSizeX: drawSize.x,
         imgSizeY: drawSize.y
     };
+
+    if (tintR !== 255 || tintG !== 255 || tintB !== 255) {
+        data.tintR = tintR;
+        data.tintG = tintG;
+        data.tintB = tintB;
+    }
 
     socket.emit('image', data);
 }
@@ -694,6 +726,11 @@ function SocketSetup() {
     });
 
     socket.on('image', function (data) {
+        if (data.hasOwnProperty("tintR")) {
+            DrawImage(data.imgIndex, data.posX, data.posY, createVector(data.imgSizeX, data.imgSizeY),
+                color(data.tintR, data.tintG, data.tintB));
+            return;
+        }
         DrawImage(data.imgIndex, data.posX, data.posY, createVector(data.imgSizeX, data.imgSizeY));
     });
 
@@ -706,7 +743,7 @@ function SocketSetup() {
         if (Game.guess(data.guess)) {
             DrawWord(data.guess, width - 100, playerGuessPos.y, DISPLAYGREEN, createVector(180, 30));
             DrawImage(1, width - 30, playerGuessPos.y, createVector(30, 30));
-            correctSound.play();
+            Game.correctSound.play();
 
             Game.guessReply(true, data);
         }
@@ -724,7 +761,7 @@ function SocketSetup() {
         if (data.result) {
             DrawWord(data.guess, width - 100, playerGuessPos.y, DISPLAYGREEN, createVector(180, 30));
             DrawImage(1, width - 30, playerGuessPos.y, createVector(30, 30));
-            correctSound.play();
+            Game.correctSound.play();
         }
         else {
             DrawWord(data.guess, width - 100, playerGuessPos.y, DISPLAYRED, createVector(180, 30));
@@ -755,6 +792,13 @@ function SocketSetup() {
 
         Game.winSong.play();
 
+        if (socket.id === data.winnerId) {
+            tintUnlocked = true;
+            DrawWord("Tinted emotes unlocked!",width / 2, (height / 2) + 50,
+                DISPLAYGREEN,
+                createVector(800, 55), 25);
+        }
+
         Game.reset();
     });
 }
@@ -762,8 +806,6 @@ function SocketSetup() {
 //TODO: add a rectangle that covers all drawing in the players/guessing area. size needs to match players in the game
 //TODO: if you start a game solo or everyone but you disconnects, cancel the game
 //TODO: don't draw when you click a button
-//TODO: when someone wins the game give them tinted emotes
-//TODO: add a mute button to the game 🔊, 🔈
 //TODO: add an offline mode. Just disable all the socket methods.
 //TODO: make variables private when done testing
 //TODO: when a player joins and the host is drawing, the player gets sent the canvas which includes the current word.

@@ -1,17 +1,17 @@
 //Setup server with express
-var express = require('express');
-var app = express();
-var server = app.listen(3000);
+let express = require('express');
+let app = express();
+let server = app.listen(3000);
 
-var socket = require('socket.io');
-var io = socket(server);
+let socket = require('socket.io');
+let io = socket(server);
 
 app.use(express.static('public'));
 
-var connectedUsers = [];
-var gamePlayers = [];
-var playerId = 0;
-var scoreGoal = 10;
+let connectedUsers = [];
+let gamePlayers = [];
+let playerId = 0;
+let scoreGoal = 1;
 
 console.log("Listening on port 3000. Please port forward if you wish to connect over the internet.\n")
 
@@ -169,14 +169,12 @@ io.sockets.on('connection', function(socket) {
                 //Sort highest to lowest score
                 winners.sort(function(x,y) { return x.score < y.score });
 
-                //Highest score wins but if they are the same guesser should win
-                if (winners[0].score === winners[1].score) {
-                    //Equal score, if [0] is drawer, remove them otherwise [1] is the drawer
-                    if (winners[0].id === playerId) winners.splice(0,1);
-                }
+                //Equal score no winner yet
+                if (winners[0].score === winners[1].score) return false;
             }
 
             let data = {
+                winnerId: winners[0].id,
                 winnerName: winners[0].name,
                 score: winners[0].score
             };
