@@ -1,7 +1,9 @@
 let socket = io;
 
 //keep track of our colour
-let r = 150, g = 150, b = 150, drawSize;
+let r = 150, g = 150, b = 150, prevColour;
+//drawing variables
+let drawSize, prevMousePos;
 //predefine constants
 let BLACK, WHITE, RED, GREEN, BLUE, DISPLAYRED, DISPLAYGREEN, DISPLAYBLUE, DEFAULTSIZE, PLAYERLISTPOS;
 //image array
@@ -14,6 +16,8 @@ let loading = true;
 let keys = [];
 //shift key down
 let shiftDown = false;
+//a key down
+let eraserActive = false;
 //has won a game
 let tintUnlocked = false;
 //word guessing game object
@@ -30,7 +34,7 @@ let Game = {
     playerPos: [],
     gameActive: false,
     startTime: 0,
-    roundLength: 120,
+    roundLength: 90,
     timeLeft: 0,
     hintCount: 0,
     winSong: undefined,
@@ -159,14 +163,15 @@ let Game = {
         let score = 0;
 
         //Score gained based on time left
-        if (Game.timeLeft > 90) score += 3;
-        else if (Game.timeLeft > 60) score += 2;
+        if (Game.timeLeft > 75) score += 3;
+        else if (Game.timeLeft > 45) score += 2;
         else score += 1;
         //Score gained based on word length
         if (Game.currentWord.length > 9) score += 5;
         else if (Game.currentWord.length > 6) score += 3;
         else if (Game.currentWord.length > 3) score += 1;
         else score -= 1;
+
         //Minimum 1 score
         if (score < 1) score = 1;
 
@@ -363,6 +368,7 @@ function setup() {
 
     //Setup helpers
     drawSize = createVector(DEFAULTSIZE.x,DEFAULTSIZE.y);
+    prevMousePos = createVector(null, null);
 }
 
 function draw() {
@@ -373,12 +379,16 @@ function draw() {
   DrawPalette();
 
   if (mouseIsPressed) {
-      DrawDot();
+      DrawLine();
       SendMouseInfo();
       //Brighten colour while painting
       ApproachColour(WHITE, random(0, 0.5));
+      prevMousePos = createVector(mouseX, mouseY);
   }
-  else ApproachColour(BLACK, random(0, 2), true);
+  else {
+      prevMousePos = createVector(null, null);
+      ApproachColour(BLACK, random(0, 2), true);
+  }
 }
 
 //Canvas
@@ -387,6 +397,15 @@ function DrawDot(x = mouseX, y = mouseY, dotColour = color(r,g,b), dotSize = dra
     noStroke();
     fill(dotColour);
     ellipse(x, y , dotSize.x, dotSize.y);
+}
+
+function DrawLine(x = mouseX, y = mouseY, prevX = prevMousePos.x, prevY = prevMousePos.y, dotColour = color(r,g,b), lineWeight = drawSize.x) {
+    if (!prevX) prevX = x;
+    if (!prevY) prevY = y;
+
+    stroke(dotColour);
+    strokeWeight(lineWeight);
+    line(x, y, prevX, prevY);
 }
 
 function DrawRect(x = mouseX, y = mouseY, dotColour = color(r,g,b), rectSize = drawSize) {
@@ -453,9 +472,16 @@ function DrawPalette() {
 //Controls
 //Approach colour by amount each frame
 function ApproachColour(colour, amount = random(0, 4), darken = false) {
-    let newR = colour._array[0] * 255;
-    let newG = colour._array[1] * 255;
-    let newB = colour._array[2] * 255;
+    if (eraserActive) {
+        r = 20;
+        g = 20;
+        b = 20;
+        return;
+    }
+
+    let newR = colour.levels[0];
+    let newG = colour.levels[1];
+    let newB = colour.levels[2];
 
     if (darken) {
         //Approach a specific colour
@@ -497,38 +523,27 @@ function CheckTimer() {
         //you have a certain word length send a hint and increment hintCount
         switch (Game.hintCount) {
             case 0:
-                if (Game.timeLeft <= 100 && Game.currentWord.length > 9) {
+                if (Game.timeLeft <= 75 && Game.currentWord.length > 9) {
                     ImproveAndSendHint();
                 }
-                else if (Game.timeLeft <= 90  && Game.currentWord.length > 5) {
+                else if (Game.timeLeft <= 60  && Game.currentWord.length > 6) {
                     ImproveAndSendHint();
                 }
-                else if (Game.timeLeft <= 60  && Game.currentWord.length > 2) {
+                else if (Game.timeLeft <= 45  && Game.currentWord.length > 3) {
                     ImproveAndSendHint();
                 }
                 break;
             case 1:
-                if (Game.timeLeft <= 75 && Game.currentWord.length > 9) {
+                if (Game.timeLeft <= 50 && Game.currentWord.length > 9) {
                     ImproveAndSendHint(2);
                 }
-                else if (Game.timeLeft <= 60  && Game.currentWord.length > 5) {
-                    ImproveAndSendHint();
-                }
-                else if (Game.timeLeft <= 15  && Game.currentWord.length > 2) {
+                else if (Game.timeLeft <= 30  && Game.currentWord.length > 6) {
                     ImproveAndSendHint();
                 }
                 break;
             case 2:
-                if (Game.timeLeft <= 50 && Game.currentWord.length > 9) {
-                    ImproveAndSendHint();
-                }
-                else if (Game.timeLeft <= 30  && Game.currentWord.length > 5) {
-                    ImproveAndSendHint();
-                }
-                break;
-            case 3:
                 if (Game.timeLeft <= 25 && Game.currentWord.length > 9) {
-                    ImproveAndSendHint(1);
+                    ImproveAndSendHint();
                 }
                 break;
         }
@@ -543,6 +558,19 @@ function ImproveAndSendHint(amount = 1) {
 
 function CheckInput() {
     shiftDown = keys.includes(16);
+
+    let eraserActiveState = keys.includes(65);
+    if (eraserActive !== eraserActiveState) {
+        //If we are switching into eraser active -> remember the colour we were using
+        if (eraserActive === false) prevColour = color(r,g,b);
+        //Once we are out of eraser mode -> switch back to the previous colour
+        else {
+            r = prevColour.levels[0];
+            g = prevColour.levels[1];
+            b = prevColour.levels[2];
+        }
+        eraserActive = eraserActiveState;
+    }
 
     for (let i = 0; i < keys.length; ++i) {
         DoWork(keys[i]);
@@ -600,9 +628,6 @@ function PlaceImageByIndex(i) {
 
 //keep track of all keys being held down
 function keyPressed() {
-    //ignore tab, backspace, enter and space
-    //if (keyCode === 9 || keyCode === 8 || keyCode === 13 || keyCode === 32) return;
-    //if (keyCode === 16)
     if (!keys.includes(keyCode)) keys.push(keyCode);
 }
 
@@ -626,11 +651,13 @@ function SendMouseInfo() {
     let data = {
         x: mouseX,
         y: mouseY,
+        prevX: prevMousePos.x,
+        prevY: prevMousePos.y,
         r: r,
         g: g,
         b: b,
-        sizeX: drawSize.x,
-        sizeY: drawSize.y
+        sizeX: drawSize.x
+        //sizeY: drawSize.y
     };
 
     socket.emit('mouse', data);
@@ -681,7 +708,7 @@ function SendGuess(guess) {
 function SocketSetup() {
     //Receive
     socket.on('mouse', function (data) {
-        DrawDot(data.x, data.y, color(data.r, data.g, data.b), createVector(data.sizeX, data.sizeY));
+        DrawLine(data.x, data.y,data.prevX, data.prevY, color(data.r, data.g, data.b), data.sizeX);
     });
 
     socket.on('requestCanvas', function (data) {
@@ -812,7 +839,3 @@ function SocketSetup() {
 //TODO: add an offline mode. Just disable all the socket methods.
 //TODO: make variables private when done testing
 //TODO: when a player joins and the host is drawing, the player gets sent the canvas which includes the current word.
-//TODO: add eraser (colour 20)
-//TODO: maybe use lines instead of only circles to make the drawing easier
-//TODO: reduce timer to 100 / 90 seconds (adjust the hint rate)
-//TODO: make the minimum word count for hints 4 letters

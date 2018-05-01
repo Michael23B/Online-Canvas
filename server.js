@@ -11,7 +11,7 @@ app.use(express.static('public'));
 let connectedUsers = [];
 let gamePlayers = [];
 let playerId = 0;
-let scoreGoal = 1;
+let scoreGoal = 50;
 let words = [];
 
 //Read from list of words into words array
@@ -45,7 +45,6 @@ io.sockets.on('connection', function(socket) {
     console.log('');
 
     //Request canvas for the new client
-    //TEMPORARY DISABLE BECAUSE ITS MEGA SLOW
     if (connectedUsers.length > 1) {
         socket.to(connectedUsers[0].id).emit('requestCanvas', { from: socket.id });
         io.emit('loading', true);
@@ -109,7 +108,6 @@ io.sockets.on('connection', function(socket) {
 
     //Drawing game functions
 
-    //TODO: store words.txt on server instead of locally and send the word/index to the currently drawing player
     //On 'startGame' -> everyone
     socket.on('startGame', function() {
         if (gamePlayers.length > 0) return;//if joining game wait until next round
@@ -183,7 +181,7 @@ io.sockets.on('connection', function(socket) {
 
         //Check for any players with a score higher than the goal
         for (let i = 0; i < connectedUsers.length;  ++i) {
-            if (connectedUsers[i].score > scoreGoal) {
+            if (connectedUsers[i].score >= scoreGoal) {
                 winners.push(connectedUsers[i]);
             }
         }
