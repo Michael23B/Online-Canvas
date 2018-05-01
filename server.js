@@ -12,6 +12,25 @@ let connectedUsers = [];
 let gamePlayers = [];
 let playerId = 0;
 let scoreGoal = 1;
+let words = [];
+
+//Read from list of words into words array
+const readline = require('readline');
+const fs = require('fs');
+
+const rl = readline.createInterface({
+    input: fs.createReadStream('data/words.txt')
+});
+
+rl.on('line', function (line) {
+    words.push(line);
+});
+
+//rl.on('close', function() { console.log(words); });
+
+function getRandomInt(min, max) {
+    return Math.round(Math.random() * (max - min) + min);
+}
 
 console.log("Listening on port 3000. Please port forward if you wish to connect over the internet.\n")
 
@@ -98,10 +117,13 @@ io.sockets.on('connection', function(socket) {
         gamePlayers = connectedUsers.slice(0);
 
         playerId = socket.id;
-        //playerId = gamePlayers.findIndex(x => x === socket.id);
+
         let data = {
             players: gamePlayers,
-            currentPlayerId: playerId
+            currentPlayerId: playerId,
+            word1: words[getRandomInt(0,words.length - 1)],
+            word2: words[getRandomInt(0,words.length - 1)],
+            word3: words[getRandomInt(0,words.length - 1)],
         };
 
         io.emit('startGame', data);
@@ -147,7 +169,10 @@ io.sockets.on('connection', function(socket) {
 
         let data = {
             players: gamePlayers,
-            currentPlayerId: playerId
+            currentPlayerId: playerId,
+            word1: words[getRandomInt(0,words.length - 1)],
+            word2: words[getRandomInt(0,words.length - 1)],
+            word3: words[getRandomInt(0,words.length - 1)],
         };
 
         io.emit('startGame', data);

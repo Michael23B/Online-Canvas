@@ -12,11 +12,15 @@ america
 angry
 anime
 ant
+anteater
+antelope
 applause
 apple
 apple tree
 architect
+arctic fox
 armada
+armadillo
 artist
 astronomer
 atlantis
@@ -25,6 +29,7 @@ baby
 baby-sitter
 back seat
 backbone
+badger
 bagg
 baguette
 bald
@@ -57,7 +62,9 @@ beauty and the beast
 beaver
 bed
 bedbug
+bee
 beehive
+beetle
 behind
 bell
 bell pepper
@@ -68,6 +75,7 @@ bicycle
 bike
 bikini
 biologist
+birds
 birthday
 birthday cake
 biscuit
@@ -117,6 +125,7 @@ bubble
 bubble bath
 bucket
 buckle
+buffalo
 bulb
 bumble bee
 bunk bed
@@ -132,6 +141,7 @@ cake
 calculator
 call of duty
 calm
+camel
 camera
 can
 candle
@@ -159,6 +169,7 @@ century
 chain saw
 chair
 chalk
+chameleon
 chandelier
 charger
 check book
@@ -167,6 +178,7 @@ cheerleader
 cheese
 cheeseburger
 cheesecake
+cheetah
 chef
 chemists
 cherry
@@ -181,6 +193,7 @@ chin
 chiropractor
 chocolate chip cookie
 church
+cicada
 cinderella
 circle
 circus
@@ -196,6 +209,8 @@ clue
 coach
 coal
 coat
+cockatoo
+cockroach
 coconut
 coffee maker
 comfy
@@ -210,12 +225,14 @@ corner
 cow
 cowboy
 cowboy hat
+coyote
 crab
 crayon
 credit card
 crib
 cricket
 crisp
+crow
 crow's nest
 cruise
 cruise ship
@@ -230,6 +247,7 @@ darts
 dashboard
 debate
 deep
+deer
 dent
 dentist
 deodorant
@@ -251,13 +269,16 @@ dollar
 dolphin
 dominoes
 donald trump
+donkey
 door
 doormat
 dorsal
 double
 doughnut
+dove
 dra
 dragon
+dragonfly
 drain
 drawback
 dream
@@ -274,6 +295,7 @@ duck
 dumbbell
 dust bunny
 e
+eagle
 ear
 ears
 earthquake
@@ -301,12 +323,14 @@ face
 facebook
 fake flowers
 fang
+ferret
 ferris wheel
 fiddle
 firefighter
 fireman pole
 fireside
 fireworks
+fish
 fishing pole
 fishing rod
 fist
@@ -318,13 +342,16 @@ flat
 flower
 flute
 flutter
+fly
 flying saucer
 fog
 foil
 football
+fox
 frame
 french bulldog
 french fries
+frog
 front porch
 full
 full moon
@@ -336,6 +363,7 @@ garbage
 garden
 gasoline
 gate
+gazelle
 gel
 geologist
 german shepherd
@@ -346,6 +374,7 @@ girl
 glasses
 glitter
 glow stick
+goat
 goblin
 gold
 gold digger
@@ -357,9 +386,12 @@ graduation
 grandpa
 grapes
 grass
+grasshopper
 great wall of china
 grid paper
 grizzly bear
+groundhog
+guinea pig
 gym shorts
 gymnastics
 hail
@@ -375,8 +407,10 @@ happy
 hat
 head
 heart
+hedgehog
 heinz 57
 helmet
+hen
 high heel
 high heels
 highchair
@@ -392,20 +426,22 @@ hot tub
 hotel
 house
 houseboat
+hummingbird
 hurdle
 husband
 hut
 hydrogen
+hyena
 ice
 ice cream cone
 ice fishing
 ice skating
 igloo
-im
 implode
 important
 inchworm
 inquisition
+insects
 internet
 ipad
 iron man
@@ -455,6 +491,7 @@ leaf
 leak
 leg warmers
 lemon
+leopard
 leprechaun
 les
 letter opener
@@ -469,11 +506,13 @@ lip gloss
 lips
 lipstick
 little red riding hood
+llama
 lobster
 logo
 loiterer
 lollipop
 london eye
+lynx
 lyrics
 macaroni
 macho
@@ -483,12 +522,14 @@ mailbox
 mailman
 mammoth
 man
+mario
 mario kart
 mascot
 mask
 mast
 meatballs
 mechanic
+meerkat
 megaphone
 meme
 mermaid
@@ -503,12 +544,14 @@ mir
 mirror
 mitten
 mold
+mole
 mom
 money
 monkey
 mooch
 mood
 moon
+moose
 moth
 mother
 mount rushmore
@@ -553,7 +596,10 @@ opaque
 optometrist
 orange
 orange juice
+orangutan
 orbit
+orca
+ostrich
 outlet
 outside
 oven
@@ -566,12 +612,15 @@ paint brush
 pajamas
 palace
 pancake
+panda bear
+panther
 pantyhose
 paper plate
 parachute
 parent
 park
 parody
+parrot
 password
 pasta
 pastry
@@ -585,6 +634,7 @@ pelican
 pen
 pencil
 pencil case
+penguin
 people
 pepe
 pepper
@@ -601,6 +651,8 @@ piano
 picnic
 picture frame
 pie
+pig
+pigeon
 pigpen
 pikachu
 pilgrim
@@ -626,6 +678,7 @@ poodle
 popcorn
 popsicle
 por
+poseidon
 positive
 post office
 potato
@@ -648,6 +701,8 @@ quarantine
 queen
 quicksand
 quilt
+rabbit
+raccoon
 radish
 raft
 rain
@@ -659,12 +714,14 @@ rapunzel
 rate
 recycle
 refrigerator
+reindeer
 retail
 rib
 rice pudding
 rim
 ring
 ringleader
+robin
 robot
 rock band
 rocket
@@ -700,8 +757,12 @@ scrambled eggs
 scream
 screw
 sea captain
+sea lion
 sea monster
+sea otter
+seagull
 seahorse
+seal
 seashell
 season
 seat belt
@@ -719,6 +780,7 @@ shovel
 show
 shower curtain
 shrew
+shrimp
 shrink ray
 sick
 siesta
@@ -735,6 +797,7 @@ sleep
 slide
 slipper
 sloth
+slug
 slump
 smile
 snag
@@ -755,6 +818,7 @@ something
 song
 space
 spaghetti
+sparrow
 speakers
 spider
 spider-man
@@ -765,6 +829,8 @@ spoon
 spring
 spring jacket
 sprinkler
+squid
+squirrel
 stage
 stairs
 star
@@ -801,6 +867,7 @@ superman
 surfing
 sushi
 swamp
+swan
 swarm
 sweater
 sweater vest
@@ -824,6 +891,7 @@ think
 thread
 ticket
 tie
+tiger
 time machine
 tiptoe
 tire
@@ -847,6 +915,7 @@ tricycle
 trip
 truck
 tsunami
+turkey
 turtle
 turtleneck
 tusk
@@ -871,13 +940,18 @@ waffle
 waffle iron
 wag
 waist
+wallaby
+walrus
 washing machine
+wasp
 watch
 water buffalo
 watering
 watering can
 watermelon
 wax
+weasel
+weaver
 wedding cake
 weeb
 weightlifting
@@ -890,6 +964,10 @@ wig
 wild boar
 wireless control
 wobble
+wolf
+wolverine
+wombat
+woodpecker
 word search
 world
 worm
@@ -898,6 +976,7 @@ yo-yo
 yolk
 young
 zebra
+zeus
 zipper
 zombie
 zoo

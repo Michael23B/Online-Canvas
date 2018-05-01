@@ -6,8 +6,6 @@ let r = 150, g = 150, b = 150, drawSize;
 let BLACK, WHITE, RED, GREEN, BLUE, DISPLAYRED, DISPLAYGREEN, DISPLAYBLUE, DEFAULTSIZE, PLAYERLISTPOS;
 //image array
 let images = [];
-//word array
-let words = [];
 //names array
 let names = [];
 //is a client joining?
@@ -23,6 +21,7 @@ let Game = {
     //Variables
     currentWordIndex: 0,
     currentWord: "",
+    words: [],
     hint: "",
     newWordCounter: 0,
     currentPlayerId: 0,
@@ -39,7 +38,7 @@ let Game = {
     volume: 1,
     //Functions
     guess: function (word) {
-        return words.findIndex(x => x === word) === this.currentWordIndex;
+        return word === this.currentWord;
     },
     guessReply: function(result, data) {
         if (result) {
@@ -52,36 +51,44 @@ let Game = {
         }
     },
     beginRound: function (drawer, data) {
+        this.words = [];
         if (drawer) {
-            Game.gameInput.hide();
-            Game.newWordCounter = 2;
-            Game.newWordbtn.html("New word (" + Game.newWordCounter + ')');
-            Game.newWord();
+            this.gameInput.hide();
+            this.newWordCounter = 2;
+            this.newWordbtn.html("New word (" + this.newWordCounter + ')');
+
+            this.words.push(data.word1);
+            this.words.push(data.word2);
+            this.words.push(data.word3);
+
+            this.currentWordIndex = -1;
+            this.newWord();
         }
         else {
-            Game.gameInput.show();
-            Game.currentWord = "";
-            Game.newWordbtn.hide();
+            this.gameInput.show();
+            this.currentWord = "";
+            this.newWordbtn.hide();
         }
 
         //Setup game variables (all players)
-        Game.startTime = millis();
-        Game.timeLeft = Game.roundLength;
-        Game.gamebtn.hide();
-        Game.gameActive = true;
-        Game.currentPlayerId = data.currentPlayerId;
-        Game.gameInput.value('');
-        Game.players = data.players;
-        Game.hintCount = 0;
+        this.startTime = millis();
+        this.timeLeft = this.roundLength;
+        this.gamebtn.hide();
+        this.gameActive = true;
+        this.currentPlayerId = data.currentPlayerId;
+        this.gameInput.value('');
+        this.players = data.players;
+        this.hintCount = 0;
 
-        Game.drawPlayers();
+        this.drawPlayers();
     },
     endRound: function() {
-        Game.currentPlayerId = null; //This round if finished, don't accept any more guesses
-        Game.currentWordIndex = null;
-        Game.currentWord = "";
-        Game.hint = "";
-        Game.newWordbtn.hide();
+        this.currentPlayerId = null; //This round if finished, don't accept any more guesses
+        this.currentWordIndex = null;
+        this.currentWord = "";
+        this.hint = "";
+        this.newWordbtn.hide();
+        this.words = [];
         DrawWord(" ");  //Clear the previous word
         socket.emit('nextPlayer');
     },
@@ -95,7 +102,7 @@ let Game = {
                 let playerPosOrder = (Game.players.length - 1) - i;
                 //Set player positions (used for drawing their guesses and names)
                 Game.playerPos[i] = createVector(PLAYERLISTPOS.x, PLAYERLISTPOS.y - (playerPosOrder * 50));
-                //TODO: score after name
+
                 DrawWord(Game.players[i].name + ' (' + Game.players[i].score + ')',
                     Game.playerPos[i].x,
                     Game.playerPos[i].y,
@@ -136,14 +143,11 @@ let Game = {
         }
     },
     newWord: function() {
-        let wordIndex = Math.round(random(0, words.length - 1));
-        DrawWord(wordIndex);
-
         //Setup game variables (drawer only)
-        Game.currentWordIndex = wordIndex;
-        Game.currentWord = words[wordIndex];
-        Game.hintCount = 0;
-        Game.getHint();
+        this.currentWordIndex++;
+        this.currentWord = this.words[this.currentWordIndex];
+        this.hintCount = 0;
+        this.getHint();
 
         if (Game.newWordCounter > 0) Game.newWordbtn.show();
         else Game.newWordbtn.hide();
@@ -198,7 +202,6 @@ function preload() {
 
 function setup() {
   //We can load these asynchronously
-  words = loadStrings('data/words.txt');
   Game.winSong = loadSound('sound/winSong.mp3');
   Game.correctSound = loadSound('sound/correct.mp3');
 
@@ -401,7 +404,7 @@ function DrawImage(imageIndex, x = mouseX, y = mouseY, imageSize = drawSize, ima
 function DrawWord(wordOrIndex, posX = width / 2, posY = 5, colour = WHITE, rectSize = createVector(275, 30), fontSize = 18) {
     textSize(fontSize);
     if (typeof wordOrIndex === "number") {
-        let word = words[wordOrIndex];
+        let word = Game.words[wordOrIndex];
         DrawRect(posX - rectSize.x / 2, posY + 5, color(20,20,20), createVector(rectSize.x, rectSize.y));
         fill(WHITE);
         textAlign(CENTER);
@@ -809,3 +812,7 @@ function SocketSetup() {
 //TODO: add an offline mode. Just disable all the socket methods.
 //TODO: make variables private when done testing
 //TODO: when a player joins and the host is drawing, the player gets sent the canvas which includes the current word.
+//TODO: add eraser (colour 20)
+//TODO: maybe use lines instead of only circles to make the drawing easier
+//TODO: reduce timer to 100 / 90 seconds (adjust the hint rate)
+//TODO: make the minimum word count for hints 4 letters
