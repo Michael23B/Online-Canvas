@@ -17,7 +17,7 @@
 2. Unzip the files
 3. Run onlinecanvas.exe
 4. Forward port 3000 to play online
-5. Connect using localhost:3000 or yourip:3000
+5. Connect using localhost:3000 or your-ip:3000
 
 #### Downloading source (requires node.js)
 1. Download or clone repo
