@@ -1,8 +1,9 @@
 {
   "name": "onlinecanvas",
   "version": "1.0.0",
-  "description": "Drawing canvas synced online",
+  "description": "Online canvas to draw with friends. Play a game of pictionary with annoying controls!",
   "main": "server.js",
+  "bin": "./server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js"
@@ -17,5 +18,16 @@
   "dependencies": {
     "express": "^4.16.3",
     "socket.io": "^2.1.0"
+  },
+  "pkg": {
+    "scripts": "public/scripts/sketch.js",
+    "assets": [
+      "public/data/names.txt",
+      "public/img/*",
+      "public/sound/*",
+      "public/index.html",
+      "public/site.css",
+      "data/words.txt"
+    ]
   }
 }
