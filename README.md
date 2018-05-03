@@ -1,4 +1,4 @@
-# Online Drawing Canvas
+# Online Canvas
 
 ### You can draw stuff with other people:
 
@@ -11,5 +11,17 @@
 ![guessing2](https://user-images.githubusercontent.com/33080132/39557844-dcad637a-4ecd-11e8-92e2-c8ceda325800.png)
 ---
 
-### Setup
-(coming soon)
+## Setup
+#### Downloading release
+1. Go to releases and download the latest archive.
+2. Unzip the files
+3. Run onlinecanvas.exe
+4. Forward port 3000 to play online
+5. Connect using localhost:3000 or yourip:3000
+
+#### Downloading source (requires node.js)
+1. Download or clone repo
+2. Enter 'cd path/to/app'
+3. Enter 'node server.js'
+3. Forward port 3000 to play online
+4. Connect using localhost:3000 or your-ip:3000
