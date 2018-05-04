@@ -1,12 +1,14 @@
 //Setup server with express
 let express = require('express');
 let app = express();
-let server = app.listen(3000);
+const PORT = process.env.PORT || 3000;
+let server = app.listen(PORT);
+let path = require('path');
 
 let socket = require('socket.io');
 let io = socket(server);
 
-app.use(express.static('public'));
+app.use(express.static(path.join(process.cwd(), 'public')));
 
 let connectedUsers = [];
 let gamePlayers = [];
@@ -19,7 +21,7 @@ const readline = require('readline');
 const fs = require('fs');
 
 const rl = readline.createInterface({
-    input: fs.createReadStream('data/words.txt')
+    input: fs.createReadStream(path.join(process.cwd(), 'data/words.txt'))
 });
 
 rl.on('line', function (line) {
@@ -32,7 +34,7 @@ function getRandomInt(min, max) {
     return Math.round(Math.random() * (max - min) + min);
 }
 
-console.log("Listening on port 3000. Please port forward if you wish to connect over the internet.\n")
+console.log("Listening on port " + PORT + ". Please port forward if you wish to connect over the internet.\n");
 
 io.sockets.on('connection', function(socket) {
     //On connect, add the current connection to client list
